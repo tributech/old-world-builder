@@ -1206,6 +1206,12 @@
               "name_de": "Third Giant Wolf",
               "name_fr": "Troisième Loup Géant",
               "points": 5
+            },
+            {
+              "name_en": "Standard bearer",
+              "name_de": "Standard bearer",
+              "name_fr": "Porte-étendard",
+              "points": 5
             }
           ]
         }
@@ -1356,6 +1362,12 @@
               "name_de": "Third Giant Wolf",
               "name_fr": "Troisième Loup Géant",
               "points": 5
+            },
+            {
+              "name_en": "Standard bearer",
+              "name_de": "Standard bearer",
+              "name_fr": "Porte-étendard",
+              "points": 5
             }
           ]
         }
@@ -1450,6 +1462,12 @@
               "name_en": "Third Giant Wolf",
               "name_de": "Third Giant Wolf",
               "name_fr": "Troisième Loup Géant",
+              "points": 5
+            },
+            {
+              "name_en": "Standard bearer",
+              "name_de": "Standard bearer",
+              "name_fr": "Porte-étendard",
               "points": 5
             }
           ]
@@ -1563,6 +1581,12 @@
               "name_en": "Third Giant Wolf",
               "name_de": "Third Giant Wolf",
               "name_fr": "Troisième Loup Géant",
+              "points": 5
+            },
+            {
+              "name_en": "Standard bearer",
+              "name_de": "Standard bearer",
+              "name_fr": "Porte-étendard",
               "points": 5
             }
           ]
@@ -4179,7 +4203,16 @@
         }
       },
       "command": [],
-      "equipment": [],
+      "equipment": [
+        {
+          "name_en": "Bolt thrower, Hand weapons",
+          "name_it": "Balista, Hand weapons",
+          "name_de": "Speerschleuder, Handwaffen",
+          "name_fr": "Baliste, Armes de base",
+          "points": 0,
+          "active": true
+        }
+      ],
       "armor": [],
       "options": [
         {
@@ -4293,7 +4326,15 @@
         }
       },
       "command": [],
-      "equipment": [],
+      "equipment": [
+        {
+          "name_en": "Stone thrower, Hand weapons",
+          "name_de": "Steinschleuder, Handwaffen",
+          "name_fr": "Catapulte, Armes de base",
+          "points": 0,
+          "active": true
+        }
+      ],
       "armor": [],
       "options": [
         {
