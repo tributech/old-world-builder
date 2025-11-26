@@ -41,6 +41,7 @@ import mwgForge from "../../assets/mwg-forge.gif";
 import { swap } from "../../utils/collection";
 import { useLanguage } from "../../utils/useLanguage";
 import { updateLocalList, updateListsFolder } from "../../utils/list";
+import { pushToOWR } from "../../utils/owr-sync";
 import { setLists, toggleFolder, updateList } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
 import { getRandomId } from "../../utils/id";
@@ -211,6 +212,7 @@ export const Home = ({ isMobile }) => {
         newLists = updateListsFolder(newLists);
 
         localStorage.setItem("owb.lists", JSON.stringify(newLists));
+        pushToOWR(newLists);
         dispatch(setLists(newLists));
       }
     } else {
@@ -219,6 +221,7 @@ export const Home = ({ isMobile }) => {
       );
 
       localStorage.setItem("owb.lists", JSON.stringify(newLists));
+      pushToOWR(newLists);
       dispatch(setLists(newLists));
     }
   };
@@ -326,6 +329,7 @@ export const Home = ({ isMobile }) => {
     setActiveMenu(null);
     dispatch(setLists(newLists));
     localStorage.setItem("owb.lists", JSON.stringify(newLists));
+    pushToOWR(newLists);
   };
   const handleEditConfirm = () => {
     const list = lists.find((list) => list.id === activeMenu);
@@ -350,6 +354,7 @@ export const Home = ({ isMobile }) => {
     ]);
 
     localStorage.setItem("owb.lists", JSON.stringify(newLists));
+    pushToOWR(newLists);
     dispatch(setLists(newLists));
     setFolderName("");
     setDialogOpen(null);

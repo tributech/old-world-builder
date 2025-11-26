@@ -1,18 +1,29 @@
+import { pushToOWR } from "./owr-sync";
+
 export const updateLocalList = (updatedList) => {
   const localLists = JSON.parse(localStorage.getItem("owb.lists"));
+
+  // Add timestamp for sync
+  const listWithTimestamp = {
+    ...updatedList,
+    updated_at: new Date().toISOString(),
+  };
+
   const updatedLists =
     localLists &&
     localLists.map((list) => {
-      if (list.id === updatedList.id) {
-        return updatedList;
+      if (list.id === listWithTimestamp.id) {
+        return listWithTimestamp;
       } else {
         return list;
       }
     });
 
   try {
-    localLists &&
+    if (localLists) {
       localStorage.setItem("owb.lists", JSON.stringify(updatedLists));
+      pushToOWR(updatedLists);
+    }
   } catch (error) {}
 };
 
@@ -21,6 +32,7 @@ export const removeFromLocalList = (listId) => {
   const updatedLists = localLists.filter(({ id }) => listId !== id);
 
   localStorage.setItem("owb.lists", JSON.stringify(updatedLists));
+  pushToOWR(updatedLists);
 };
 
 export const updateListsFolder = (lists) => {
