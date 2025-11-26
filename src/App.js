@@ -25,6 +25,7 @@ import { CustomDatasets } from "./pages/custom-datasets";
 import { setLists } from "./state/lists";
 import { setSettings } from "./state/settings";
 import { Header, Main } from "./components/page";
+import { pullFromOWR } from "./utils/owr-sync";
 
 import "./App.css";
 
@@ -35,11 +36,26 @@ export const App = () => {
   );
 
   useEffect(() => {
-    const localLists = localStorage.getItem("owb.lists");
-    const localSettings = localStorage.getItem("owb.settings");
+    const initApp = async () => {
+      const localListsRaw = localStorage.getItem("owb.lists");
+      const localSettings = localStorage.getItem("owb.settings");
+      const localLists = JSON.parse(localListsRaw) || [];
 
-    dispatch(setLists(JSON.parse(localLists)));
-    dispatch(setSettings(JSON.parse(localSettings)));
+      dispatch(setSettings(JSON.parse(localSettings)));
+
+      // Try to sync with OWR (will gracefully fail if not authenticated)
+      try {
+        const mergedLists = await pullFromOWR(localLists);
+        if (JSON.stringify(mergedLists) !== JSON.stringify(localLists)) {
+          localStorage.setItem("owb.lists", JSON.stringify(mergedLists));
+        }
+        dispatch(setLists(mergedLists));
+      } catch (e) {
+        dispatch(setLists(localLists));
+      }
+    };
+
+    initApp();
   }, [dispatch]);
 
   useEffect(() => {
