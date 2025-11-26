@@ -1,0 +1,167 @@
+/**
+ * OWR Theme Overrides for Old World Builder
+ *
+ * This file overrides the default builder colors to match
+ * Old World Rankings' Warhammer-themed dark aesthetic.
+ *
+ * OWR Color Palette:
+ * - Gold: #FFD700 (dark: #DAA520)
+ * - Red: #800000 (dark: #660000)
+ * - Black: #1C1C1C (dark: #000000)
+ * - Silver: #C0C0C0
+ * - Bronze: #B87333
+ */
+
+:root {
+  /* Typography - light text on dark backgrounds */
+  --color-font: #E5E5E5;
+
+  /* Backgrounds - dark theme */
+  --color-background: #1C1C1C;
+  --color-list: #2A2A2A;
+  --color-white: #F5F5F5;
+
+  /* Primary action - Warhammer Gold */
+  --color-button: #DAA520;
+
+  /* Headers - slightly lighter than pure black */
+  --color-header: #0D0D0D;
+  --color-header-menu: #151515;
+
+  /* Secondary actions */
+  --color-button-secondary: #3A3A3A;
+
+  /* Status colors */
+  --color-error: #CC3300;
+  --color-success: #4CAF50;
+}
+
+/* Button hover states */
+.button:hover,
+button:hover {
+  filter: brightness(1.1);
+}
+
+/* Gold accent for primary buttons */
+.button--primary,
+.button--cta {
+  background-color: #DAA520 !important;
+  color: #1C1C1C !important;
+}
+
+.button--primary:hover,
+.button--cta:hover {
+  background-color: #FFD700 !important;
+}
+
+/* Header styling */
+header,
+.header {
+  background-color: #0D0D0D !important;
+  border-bottom: 1px solid rgba(218, 165, 32, 0.3);
+}
+
+/* List items */
+.list__item {
+  background-color: #2A2A2A;
+  border: 1px solid rgba(218, 165, 32, 0.2);
+}
+
+.list__item:hover {
+  border-color: rgba(218, 165, 32, 0.4);
+}
+
+/* Links - gold themed */
+a {
+  color: #DAA520;
+}
+
+a:hover {
+  color: #FFD700;
+}
+
+/* Input fields */
+input,
+select,
+textarea {
+  background-color: #2A2A2A !important;
+  border-color: rgba(218, 165, 32, 0.3) !important;
+  color: #E5E5E5 !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #DAA520 !important;
+  outline-color: #DAA520 !important;
+}
+
+/* Scrollbar styling for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1C1C1C;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3A3A3A;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4A4A4A;
+}
+
+/* Dialog/Modal styling */
+.dialog,
+.modal {
+  background-color: #2A2A2A !important;
+  border: 1px solid rgba(218, 165, 32, 0.3);
+}
+
+/* Expandable sections */
+.expandable__header {
+  background-color: #2A2A2A;
+  border-color: rgba(218, 165, 32, 0.2);
+}
+
+/* Stats/unit cards */
+.stats {
+  background-color: #2A2A2A;
+  border: 1px solid rgba(218, 165, 32, 0.2);
+}
+
+/* Number input styling */
+.number-input input {
+  background-color: #2A2A2A !important;
+}
+
+/* Breadcrumbs */
+.breadcrumbs a {
+  color: #DAA520;
+}
+
+/* Page content area */
+.page {
+  background-color: #1C1C1C;
+}
+
+/* Home page army list cards */
+.home .list__item {
+  background: linear-gradient(135deg, #2A2A2A 0%, #1C1C1C 100%);
+}
+
+/* Subtle gold border accent on focus */
+*:focus-visible {
+  outline: 2px solid #DAA520;
+  outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+  background-color: rgba(218, 165, 32, 0.3);
+  color: #F5F5F5;
+}
