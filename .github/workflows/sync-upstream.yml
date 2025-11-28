@@ -1,0 +1,37 @@
+name: Sync from Upstream
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6am UTC
+  workflow_dispatch:  # Manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get upstream URL and fetch
+        run: |
+          UPSTREAM_URL=$(gh api repos/${{ github.repository }} --jq '.parent.clone_url')
+          echo "Upstream: $UPSTREAM_URL"
+          git remote add upstream "$UPSTREAM_URL"
+          git fetch upstream
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Rebase onto upstream (fails on conflict)
+        run: git rebase upstream/main
+
+      - name: Push and tag
+        run: |
+          git push origin main --force-with-lease
+          git tag -f owr_latest
+          git push origin owr_latest --force
