@@ -119,7 +119,7 @@ export const App = () => {
           <Route path="/print/:listId">{<Print />}</Route>
           <Route path="/game-view/:listId">{<GameView />}</Route>
           <Route path="/">
-            <Header headline="Old World Builder" hasMainNavigation />
+            <Header headline="Old World Builder" hasMainNavigation hasOWRButton />
             <Main isDesktop>
               <section className="column">
                 <Home />
