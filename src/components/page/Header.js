@@ -32,9 +32,11 @@ export const Header = ({
     setShowMenu(!showMenu);
   };
   const handleBackToOWR = () => {
-    if (window.opener) {
-      window.opener.focus();
+    if (window.opener && !window.opener.closed) {
+      // Focus the OWR window by its name
+      window.open('', 'owr-main');
     } else {
+      // No opener - navigate to OWR root
       window.location.href = "/";
     }
   };
