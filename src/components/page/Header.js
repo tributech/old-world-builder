@@ -21,6 +21,7 @@ export const Header = ({
   hasMainNavigation,
   navigationIcon,
   hasHomeButton,
+  hasOWRButton,
   filters,
 }) => {
   const intl = useIntl();
@@ -29,6 +30,13 @@ export const Header = ({
   const Component = isSection ? "section" : "header";
   const handleMenuClick = () => {
     setShowMenu(!showMenu);
+  };
+  const handleBackToOWR = () => {
+    if (window.opener) {
+      window.opener.focus();
+    } else {
+      window.location.href = "/";
+    }
   };
   const navigationLinks = [
     {
@@ -84,7 +92,16 @@ export const Header = ({
         />
       ) : (
         <>
-          {hasHomeButton && (
+          {hasOWRButton && (
+            <Button
+              type="text"
+              onClick={handleBackToOWR}
+              label="Back to OWR"
+              color="light"
+              icon="back"
+            />
+          )}
+          {hasHomeButton && !hasOWRButton && (
             <Button
               type="text"
               to="/"
@@ -93,7 +110,7 @@ export const Header = ({
               icon="home"
             />
           )}
-          {navigation && !hasHomeButton && (
+          {navigation && !hasHomeButton && !hasOWRButton && (
             <div className="header__empty-icon" />
           )}
         </>
@@ -214,5 +231,6 @@ Header.propTypes = {
   hasPointsError: PropTypes.bool,
   hasMainNavigation: PropTypes.bool,
   hasHomeButton: PropTypes.bool,
+  hasOWRButton: PropTypes.bool,
   navigationIcon: PropTypes.string,
 };
