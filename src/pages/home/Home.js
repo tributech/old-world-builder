@@ -531,7 +531,7 @@ export const Home = ({ isMobile }) => {
         </form>
       </Dialog>
 
-      {isMobile && <Header headline="Old World Builder" hasMainNavigation />}
+      {isMobile && <Header headline="Old World Builder" hasMainNavigation hasOWRButton />}
       <MainComponent>
         {listsWithoutFolders.length > 0 && (
           <section className="column-header home__header">

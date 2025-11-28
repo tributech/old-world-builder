@@ -71,7 +71,7 @@ export const App = () => {
   }, []);
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/builder">
       {isMobile ? (
         <Switch>
           <Route path="/editor/:listId/edit">{<EditList isMobile />}</Route>
