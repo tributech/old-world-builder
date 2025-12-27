@@ -10,7 +10,10 @@
  * - Cookie (web): Uses credentials: "include" for session cookies
  */
 
-const SYNC_PATH = "/api/builder/sync";
+// Web uses /api/builder/sync (Rails controller with session cookies)
+// Mobile uses /api/v1/builder/sync (Grape API with JWT)
+const SYNC_PATH_WEB = "/api/builder/sync";
+const SYNC_PATH_MOBILE = "/api/v1/builder/sync";
 const SYNC_DEBOUNCE_MS = 2000;
 
 let syncTimeout = null;
@@ -22,11 +25,12 @@ let isSyncing = false;
  * Uses window.__OWR_CONFIG__.apiBaseUrl for mobile, relative URL for web
  */
 const getSyncEndpoint = () => {
-  const config = window.__OWR_CONFIG__;
-  if (config?.apiBaseUrl) {
-    return `${config.apiBaseUrl}${SYNC_PATH}`;
+  if (isJwtMode()) {
+    const config = window.__OWR_CONFIG__;
+    const baseUrl = config?.apiBaseUrl || "";
+    return `${baseUrl}${SYNC_PATH_MOBILE}`;
   }
-  return SYNC_PATH;
+  return SYNC_PATH_WEB;
 };
 
 /**
