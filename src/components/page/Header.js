@@ -6,6 +6,7 @@ import { useIntl } from "react-intl";
 
 import { Button } from "../../components/button";
 import { Icon } from "../../components/icon";
+import { isMobileAppContext } from "../../utils/owr-sync";
 
 import "./Header.css";
 
@@ -94,7 +95,7 @@ export const Header = ({
         />
       ) : (
         <>
-          {hasOWRButton && (
+          {hasOWRButton && !isMobileAppContext() && (
             <Button
               type="text"
               onClick={handleBackToOWR}
