@@ -4,9 +4,13 @@
  * This module syncs army lists with OWR when user is authenticated:
  * - On app load: pulls lists from OWR and merges with localStorage
  * - On list changes: debounced push to OWR
+ *
+ * Supports two auth modes:
+ * - JWT (mobile): Uses window.__OWR_AUTH__ with Bearer token
+ * - Cookie (web): Uses credentials: "include" for session cookies
  */
 
-const SYNC_ENDPOINT = "/api/builder/sync";
+const SYNC_PATH = "/api/builder/sync";
 const SYNC_DEBOUNCE_MS = 2000;
 
 let syncTimeout = null;
@@ -14,14 +18,59 @@ let isAuthenticated = null;
 let isSyncing = false;
 
 /**
+ * Get the full sync endpoint URL
+ * Uses window.__OWR_CONFIG__.apiBaseUrl for mobile, relative URL for web
+ */
+const getSyncEndpoint = () => {
+  const config = window.__OWR_CONFIG__;
+  if (config?.apiBaseUrl) {
+    return `${config.apiBaseUrl}${SYNC_PATH}`;
+  }
+  return SYNC_PATH;
+};
+
+/**
+ * Check if we're in JWT auth mode (mobile app)
+ */
+const isJwtMode = () => {
+  return window.__OWR_AUTH__?.mode === "jwt" && window.__OWR_AUTH__?.accessToken;
+};
+
+/**
+ * Get fetch options based on auth mode
+ */
+const getFetchOptions = (options = {}) => {
+  if (isJwtMode()) {
+    return {
+      ...options,
+      headers: {
+        ...options.headers,
+        Authorization: `Bearer ${window.__OWR_AUTH__.accessToken}`,
+      },
+    };
+  }
+  // Web mode: use session cookies
+  return {
+    ...options,
+    credentials: "include",
+  };
+};
+
+/**
  * Check if user is logged into OWR
  * Caches result to avoid repeated requests
  */
 export const checkAuth = async () => {
+  // In JWT mode, check if token exists
+  if (isJwtMode()) {
+    isAuthenticated = true;
+    return true;
+  }
+
   if (isAuthenticated !== null) return isAuthenticated;
 
   try {
-    const res = await fetch(SYNC_ENDPOINT, { credentials: "include" });
+    const res = await fetch(getSyncEndpoint(), getFetchOptions());
     isAuthenticated = res.ok;
     return isAuthenticated;
   } catch {
@@ -38,6 +87,14 @@ export const resetAuthCache = () => {
 };
 
 /**
+ * Check if running in mobile app context
+ * Returns true if JWT auth is configured or running from file:// protocol
+ */
+export const isMobileAppContext = () => {
+  return isJwtMode() || window.location.protocol === "file:";
+};
+
+/**
  * Fetch lists from OWR and merge with local lists
  * @param {Array} localLists - Current lists from localStorage
  * @returns {Array} - Merged lists
@@ -46,7 +103,7 @@ export const pullFromOWR = async (localLists) => {
   if (!(await checkAuth())) return localLists;
 
   try {
-    const res = await fetch(SYNC_ENDPOINT, { credentials: "include" });
+    const res = await fetch(getSyncEndpoint(), getFetchOptions());
     if (!res.ok) return localLists;
 
     const { lists: serverLists } = await res.json();
@@ -69,12 +126,14 @@ export const pushToOWR = (lists) => {
 
     isSyncing = true;
     try {
-      await fetch(SYNC_ENDPOINT, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lists: addTimestamps(lists) }),
-      });
+      await fetch(
+        getSyncEndpoint(),
+        getFetchOptions({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lists: addTimestamps(lists) }),
+        })
+      );
     } catch (e) {
       console.warn("OWR sync failed:", e);
     } finally {
