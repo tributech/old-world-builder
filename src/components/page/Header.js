@@ -41,6 +41,10 @@ export const Header = ({
       window.location.href = "/";
     }
   };
+  const handleLogout = () => {
+    // Navigate to custom scheme URL that Android WebView will intercept
+    window.location.href = "owr://logout";
+  };
   const navigationLinks = [
     {
       name: intl.formatMessage({
@@ -70,6 +74,12 @@ export const Header = ({
       to: "/custom-datasets",
       icon: "datasets",
     },
+    // Show logout option only in mobile app context
+    ...(isMobileAppContext() ? [{
+      name: "Logout",
+      callback: handleLogout,
+      icon: "close",
+    }] : []),
   ];
   const navigation = hasMainNavigation ? navigationLinks : moreButton;
 
