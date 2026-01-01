@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import { Switch, Route, BrowserRouter } from "react-router-dom";
+import { Switch, Route, BrowserRouter, HashRouter } from "react-router-dom";
+import { isMobileAppContext } from "./utils/owr-sync";
 
 import { NewList } from "./pages/new-list";
 import { Editor } from "./pages/editor";
@@ -70,8 +71,12 @@ export const App = () => {
     }
   }, []);
 
+  // Use HashRouter for mobile app (file:// URLs don't work with BrowserRouter)
+  const Router = isMobileAppContext() ? HashRouter : BrowserRouter;
+  const routerProps = isMobileAppContext() ? {} : { basename: "/builder" };
+
   return (
-    <BrowserRouter basename="/builder">
+    <Router {...routerProps}>
       {isMobile ? (
         <Switch>
           <Route path="/editor/:listId/edit">{<EditList isMobile />}</Route>
@@ -159,6 +164,6 @@ export const App = () => {
           </Route>
         </Switch>
       )}
-    </BrowserRouter>
+    </Router>
   );
 };
