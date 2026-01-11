@@ -16,6 +16,7 @@ const SYNC_PATH_WEB = "/api/builder/sync";
 const SYNC_PATH_MOBILE = "/api/v1/builder/sync";
 const SYNC_DEBOUNCE_MS = 2000;
 const MIN_SYNC_ANIMATION_MS = 600; // Minimum time to show sync animation
+const SOFT_DELETE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 let syncTimeout = null;
 let isAuthenticated = null;
@@ -346,8 +347,9 @@ const mergeLists = (local, server) => {
   });
 
   // Add any NEW server lists (not in local) at the end
+  // Skip server lists that are marked as deleted
   server.forEach((serverList) => {
-    if (!processedServerIds.has(serverList.id)) {
+    if (!processedServerIds.has(serverList.id) && !serverList._deleted) {
       result.push(serverList);
     }
   });
@@ -361,11 +363,21 @@ const mergeLists = (local, server) => {
 export const filterDeletedLists = (lists) => lists.filter((l) => !l._deleted);
 
 /**
- * Clean up deleted lists from localStorage after successful sync
+ * Clean up soft-deleted lists from localStorage
+ * Only removes lists deleted more than 7 days ago
  */
 export const cleanupDeletedLists = () => {
   const lists = JSON.parse(localStorage.getItem("owb.lists")) || [];
-  const cleaned = lists.filter((l) => !l._deleted);
+  const now = Date.now();
+
+  const cleaned = lists.filter((list) => {
+    if (!list._deleted) return true; // Keep non-deleted
+
+    // Remove if deleted > 7 days ago
+    const deletedAt = list.updated_at ? new Date(list.updated_at).getTime() : 0;
+    return now - deletedAt < SOFT_DELETE_RETENTION_MS;
+  });
+
   localStorage.setItem("owb.lists", JSON.stringify(cleaned));
 };
 
