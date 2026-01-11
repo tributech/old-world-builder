@@ -10,6 +10,8 @@
  * - Cookie (web): Uses credentials: "include" for session cookies
  */
 
+import { sortByRank } from "./list-ordering";
+
 // Web uses /api/builder/sync (Rails controller with session cookies)
 // Mobile uses /api/v1/builder/sync (Grape API with JWT)
 const SYNC_PATH_WEB = "/api/builder/sync";
@@ -354,7 +356,8 @@ const mergeLists = (local, server) => {
     }
   });
 
-  return result;
+  // Sort by rank to ensure consistent ordering across devices
+  return sortByRank(result);
 };
 
 /**
