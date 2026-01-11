@@ -41,6 +41,7 @@ import mwgForge from "../../assets/mwg-forge.gif";
 import { useLanguage } from "../../utils/useLanguage";
 import { updateLocalList, updateListsFolder } from "../../utils/list";
 import { sortByRank, ensureRanks, reorderList, reorderFolder } from "../../utils/list-ordering";
+import { generateRank } from "../../utils/lexorank";
 import { pushToOWR } from "../../utils/owr-sync";
 import { setLists, toggleFolder, updateList } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
@@ -346,14 +347,30 @@ export const Home = ({ isMobile }) => {
     });
   };
   const handleNewConfirm = () => {
+    // Find ALL top-level items (folders are top-level with folder:null)
+    const topLevelItems = lists.filter(
+      (item) => item.folder === null || item.folder === undefined || item.type === "folder"
+    );
+
+    // Find the item with the highest (last) rank to place new folder after it
+    // This ensures new folder appears at the absolute bottom in display order
+    const lastTopLevelItem = topLevelItems.sort((a, b) => {
+      if (!a.rank) return -1;
+      if (!b.rank) return 1;
+      return a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0;
+    }).pop();
+
+    const newRank = generateRank(lastTopLevelItem?.rank, null); // Generate rank after last item
+
     const newLists = updateListsFolder([
+      ...lists,  // Existing lists first - prevents capturing folder:null lists
       {
         id: `folder-${getRandomId()}`,
         name: folderName || intl.formatMessage({ id: "home.newFolder" }),
         type: "folder",
         open: true,
+        rank: newRank,  // Assign rank to place at absolute bottom
       },
-      ...lists,
     ]);
 
     localStorage.setItem("owb.lists", JSON.stringify(newLists));
@@ -361,7 +378,6 @@ export const Home = ({ isMobile }) => {
     dispatch(setLists(newLists));
     setFolderName("");
     setDialogOpen(null);
-    window.scrollTo(0, 0);
   };
   const handleDragStart = (start) => {
     const draggedItem = lists.find(
