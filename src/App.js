@@ -26,7 +26,7 @@ import { CustomDatasets } from "./pages/custom-datasets";
 import { setLists } from "./state/lists";
 import { setSettings } from "./state/settings";
 import { Header, Main } from "./components/page";
-import { pullFromOWR } from "./utils/owr-sync";
+import { pullFromOWR, cleanupDeletedLists } from "./utils/owr-sync";
 
 import "./App.css";
 
@@ -38,21 +38,42 @@ export const App = () => {
 
   useEffect(() => {
     const initApp = async () => {
+      console.log("🚀 App.js: Initializing app");
+      console.log("   isMobileAppContext:", isMobileAppContext());
+      console.log("   window.__OWR_AUTH__:", window.__OWR_AUTH__);
+      console.log("   window.__OWR_CONFIG__:", window.__OWR_CONFIG__);
+
       const localListsRaw = localStorage.getItem("owb.lists");
       const localSettings = localStorage.getItem("owb.settings");
       const localLists = JSON.parse(localListsRaw) || [];
 
+      console.log("📋 App.js: Loaded local lists:", localLists.length);
+
       dispatch(setSettings(JSON.parse(localSettings)));
 
-      // Try to sync with OWR (will gracefully fail if not authenticated)
+      // IMMEDIATELY show local lists (filter out deleted) to avoid empty flash
+      const displayLists = localLists.filter((l) => !l._deleted);
+      dispatch(setLists(displayLists));
+      console.log("📋 App.js: Immediately showing", displayLists.length, "local lists");
+
+      // Then sync with OWR in background (will gracefully fail if not authenticated)
       try {
+        console.log("🔄 App.js: Calling pullFromOWR...");
         const mergedLists = await pullFromOWR(localLists);
-        if (JSON.stringify(mergedLists) !== JSON.stringify(localLists)) {
+        const cleanMerged = mergedLists.filter((l) => !l._deleted);
+        console.log("✅ App.js: pullFromOWR returned", cleanMerged.length, "lists");
+
+        // Only update if there are actual changes
+        if (JSON.stringify(cleanMerged) !== JSON.stringify(displayLists)) {
           localStorage.setItem("owb.lists", JSON.stringify(mergedLists));
+          dispatch(setLists(cleanMerged));
         }
-        dispatch(setLists(mergedLists));
+
+        // Cleanup deleted lists from storage after successful sync
+        cleanupDeletedLists();
       } catch (e) {
-        dispatch(setLists(localLists));
+        console.error("❌ App.js: Error during pullFromOWR:", e);
+        // Already showing local lists, no action needed
       }
     };
 

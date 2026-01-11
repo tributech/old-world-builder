@@ -6,6 +6,7 @@ import { useIntl } from "react-intl";
 
 import { Button } from "../../components/button";
 import { Icon } from "../../components/icon";
+import { SyncButton } from "../../components/sync-button";
 import { isMobileAppContext } from "../../utils/owr-sync";
 
 import "./Header.css";
@@ -152,6 +153,10 @@ export const Header = ({
           </p>
         )}
       </div>
+      {/* Show sync button on list-related screens (not info pages like About/Help) */}
+      {((hasMainNavigation && !hasHomeButton) || (to && !isSection)) && (
+        <SyncButton />
+      )}
       {navigation ? (
         <Button
           type="text"
