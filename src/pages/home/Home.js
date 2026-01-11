@@ -38,10 +38,9 @@ import forg3dBanner from "../../assets/forg3d.jpg";
 import fantasyweltDe from "../../assets/fantasywelt_de.jpg";
 import fantasyweltEn from "../../assets/fantasywelt_en.jpg";
 import mwgForge from "../../assets/mwg-forge.gif";
-import { swap } from "../../utils/collection";
 import { useLanguage } from "../../utils/useLanguage";
 import { updateLocalList, updateListsFolder } from "../../utils/list";
-import { sortByRank, ensureRanks, reorderList } from "../../utils/list-ordering";
+import { sortByRank, ensureRanks, reorderList, reorderFolder } from "../../utils/list-ordering";
 import { pushToOWR } from "../../utils/owr-sync";
 import { setLists, toggleFolder, updateList } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
@@ -92,9 +91,9 @@ export const Home = ({ isMobile }) => {
     }
   }, [rawLists, dispatch]);
 
-  // Sort by rank first, then calculate folders from sorted position
-  // This makes folder assignment sync-friendly (rank syncs, position derives from rank)
-  let lists = updateListsFolder(sortByRank(ensureRanks(rawLists).lists));
+  // Sort by rank - folder values are stored explicitly and synced
+  // (ensureRanks handles migration of legacy lists without ranks/folders)
+  let lists = sortByRank(ensureRanks(rawLists).lists);
 
   // Sort lists based on the current sorting setting
   switch (settings.listSorting) {
@@ -188,53 +187,28 @@ export const Home = ({ isMobile }) => {
   const updateLocalSettings = (newSettings) => {
     localStorage.setItem("owb.settings", JSON.stringify(newSettings));
   };
+  const folders = lists.filter((list) => list.type === "folder");
+
   const handleListMoved = ({ sourceIndex, destinationIndex }) => {
-    const draggedItem = lists.find((list, index) => index === sourceIndex);
+    // Indices from react-beautiful-dnd are into the full lists array
+    const draggedItem = lists[sourceIndex];
     const difference = sourceIndex - destinationIndex;
 
     setListsInFolder([]);
 
-    if (difference === 0) {
+    if (difference === 0 || !draggedItem) {
       return;
     }
 
     if (draggedItem.type === "folder") {
-      const listBeforeDestination = lists.find(
-        (_, index) => index === destinationIndex - 1
-      );
-      const listAtDestination = lists.find(
-        (_, index) => index === destinationIndex
-      );
-      const listAfterDestination = lists.find(
-        (_, index) => index === destinationIndex + 1
-      );
+      // Use reorderFolder - only changes folder's rank, contents follow via sort
+      const newLists = reorderFolder(lists, sourceIndex, destinationIndex);
 
-      if (
-        !listBeforeDestination ||
-        !listAfterDestination ||
-        (difference > 0 && listAtDestination.type === "folder") || // Moving up
-        (difference < 0 && listAfterDestination.type === "folder") // Moving down
-      ) {
-        let newLists = swap(lists, sourceIndex, destinationIndex);
-        const listsInFolder = lists.filter(
-          (list) => list.folder === draggedItem.id
-        );
-
-        listsInFolder.forEach((_, index) => {
-          newLists = swap(
-            newLists,
-            sourceIndex + (destinationIndex < sourceIndex ? 1 + index : 0),
-            destinationIndex + (destinationIndex < sourceIndex ? 1 + index : 0)
-          );
-        });
-        newLists = updateListsFolder(newLists);
-
-        localStorage.setItem("owb.lists", JSON.stringify(newLists));
-        pushToOWR(newLists);
-        dispatch(setLists(newLists));
-      }
+      localStorage.setItem("owb.lists", JSON.stringify(newLists));
+      pushToOWR(newLists);
+      dispatch(setLists(newLists));
     } else {
-      // Use reorderList to set rank and folder explicitly (sync-friendly)
+      // Use reorderList to set rank and folder explicitly
       let newLists = reorderList(lists, sourceIndex, destinationIndex);
 
       localStorage.setItem("owb.lists", JSON.stringify(newLists));
@@ -242,7 +216,6 @@ export const Home = ({ isMobile }) => {
       dispatch(setLists(newLists));
     }
   };
-  const folders = lists.filter((list) => list.type === "folder");
   const listsWithoutFolders = lists.filter((list) => list.type !== "folder");
   const moreButtonsFolder = [
     {
