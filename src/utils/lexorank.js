@@ -5,10 +5,16 @@
  * This enables folder/order changes to sync across devices by storing
  * an explicit rank rather than relying on array position.
  *
+ * Uses fixed boundary markers (MIN/MAX) to ensure we can always
+ * find a midpoint, even at list extremes.
+ *
  * For upstream: https://github.com/oldworldbuilder/old-world-builder
  */
 
-const MID = "n"; // Middle of alphabet for initial items
+// Fixed boundary markers - never assign these as actual ranks
+// Using multiple chars ensures we always have room for midpoints
+const MIN_RANK = "000000"; // Lower boundary
+const MAX_RANK = "zzzzzz"; // Upper boundary
 
 /**
  * Generate a rank string that sorts between prev and next.
@@ -17,18 +23,16 @@ const MID = "n"; // Middle of alphabet for initial items
  * @returns {string} A rank that sorts between prev and next
  */
 export function generateRank(prev, next) {
-  // No neighbors - use middle
-  if (!prev && !next) return MID;
+  // Use boundary markers when at list extremes
+  const lower = prev || MIN_RANK;
+  const upper = next || MAX_RANK;
 
-  // Only next exists - prepend 'a' to sort before
-  if (!prev) return "a" + next;
-
-  // Only prev exists - append 'z' to sort after
-  if (!next) return prev + "z";
-
-  // Find midpoint between prev and next
-  return midpoint(prev, next);
+  return midpoint(lower, upper);
 }
+
+// Character codes for boundary handling in midpoint (0-9, a-z range)
+const MIN_CHAR = 48; // '0'
+const MAX_CHAR = 122; // 'z'
 
 /**
  * Find lexicographic midpoint between two strings.
@@ -41,11 +45,12 @@ function midpoint(a, b) {
   let i = 0;
 
   while (true) {
-    const charA = a.charCodeAt(i) || 96; // 'a' - 1 if exhausted
-    const charB = b.charCodeAt(i) || 123; // 'z' + 1 if exhausted
+    // Use boundary chars when string is exhausted
+    const charA = a.charCodeAt(i) || MIN_CHAR;
+    const charB = b.charCodeAt(i) || MAX_CHAR;
 
     if (charA === charB) {
-      result += a[i] || "a";
+      result += a[i] || String.fromCharCode(MIN_CHAR);
       i++;
       continue;
     }
