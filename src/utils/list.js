@@ -61,10 +61,21 @@ export const updateListsFolder = (lists) => {
       return list;
     }
 
+    const newFolder =
+      latestFolderIndex !== null ? folderIndexes[latestFolderIndex] : null;
+
+    // Update timestamp if folder actually changed (for sync)
+    if (list.folder !== newFolder) {
+      return {
+        ...list,
+        folder: newFolder,
+        updated_at: new Date().toISOString(),
+      };
+    }
+
     return {
       ...list,
-      folder:
-        latestFolderIndex !== null ? folderIndexes[latestFolderIndex] : null,
+      folder: newFolder,
     };
   });
 
