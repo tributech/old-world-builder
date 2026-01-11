@@ -41,6 +41,7 @@ import mwgForge from "../../assets/mwg-forge.gif";
 import { swap } from "../../utils/collection";
 import { useLanguage } from "../../utils/useLanguage";
 import { updateLocalList, updateListsFolder } from "../../utils/list";
+import { sortByRank, ensureRanks, reorderList } from "../../utils/list-ordering";
 import { pushToOWR } from "../../utils/owr-sync";
 import { setLists, toggleFolder, updateList } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
@@ -75,7 +76,25 @@ const armyIconMap = {
 export const Home = ({ isMobile }) => {
   const MainComponent = isMobile ? Main : Fragment;
   const settings = useSelector((state) => state.settings);
-  let lists = updateListsFolder(useSelector((state) => state.lists));
+  const dispatch = useDispatch();
+  const rawLists = useSelector((state) => state.lists);
+
+  // Ensure all lists have ranks (migration for legacy lists)
+  // This persists ranks to localStorage/sync when lists without ranks are detected
+  useEffect(() => {
+    if (!rawLists || rawLists.length === 0) return;
+    const { lists: withRanks, needsUpdate } = ensureRanks(rawLists);
+    if (needsUpdate) {
+      console.log("Assigning ranks to lists:", withRanks);
+      localStorage.setItem("owb.lists", JSON.stringify(withRanks));
+      pushToOWR(withRanks);
+      dispatch(setLists(withRanks));
+    }
+  }, [rawLists, dispatch]);
+
+  // Sort by rank first, then calculate folders from sorted position
+  // This makes folder assignment sync-friendly (rank syncs, position derives from rank)
+  let lists = updateListsFolder(sortByRank(ensureRanks(rawLists).lists));
 
   // Sort lists based on the current sorting setting
   switch (settings.listSorting) {
@@ -155,7 +174,6 @@ export const Home = ({ isMobile }) => {
   const location = useLocation();
   const { language } = useLanguage();
   const { timezone } = useTimezone();
-  const dispatch = useDispatch();
   const intl = useIntl();
   const [listsInFolder, setListsInFolder] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(null);
@@ -216,9 +234,8 @@ export const Home = ({ isMobile }) => {
         dispatch(setLists(newLists));
       }
     } else {
-      let newLists = updateListsFolder(
-        swap(lists, sourceIndex, destinationIndex)
-      );
+      // Use reorderList to set rank and folder explicitly (sync-friendly)
+      let newLists = reorderList(lists, sourceIndex, destinationIndex);
 
       localStorage.setItem("owb.lists", JSON.stringify(newLists));
       pushToOWR(newLists);
