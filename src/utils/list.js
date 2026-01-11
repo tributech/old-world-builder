@@ -28,8 +28,15 @@ export const updateLocalList = (updatedList) => {
 };
 
 export const removeFromLocalList = (listId) => {
-  const localLists = JSON.parse(localStorage.getItem("owb.lists"));
-  const updatedLists = localLists.filter(({ id }) => listId !== id);
+  const localLists = JSON.parse(localStorage.getItem("owb.lists")) || [];
+
+  // Mark as deleted with timestamp instead of filtering out
+  // This allows the deletion to sync properly to the server
+  const updatedLists = localLists.map((list) =>
+    list.id === listId
+      ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
+      : list
+  );
 
   localStorage.setItem("owb.lists", JSON.stringify(updatedLists));
   pushToOWR(updatedLists);

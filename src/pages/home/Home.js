@@ -315,11 +315,20 @@ export const Home = ({ isMobile }) => {
     setFolderName("");
   };
   const handleDeleteConfirm = () => {
-    let newLists = lists.filter((list) => list.id !== activeMenu);
+    // Mark the list as deleted instead of filtering it out
+    // This allows the deletion to sync properly to the server
+    let newLists = lists.map((list) =>
+      list.id === activeMenu
+        ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
+        : list
+    );
 
+    // For folder deletion with "delete contents" option, also mark children
     if (activeDeleteOption === "delete") {
-      newLists = newLists.filter(
-        (list) => list.folder !== activeMenu || !list.folder
+      newLists = newLists.map((list) =>
+        list.folder === activeMenu
+          ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
+          : list
       );
     }
 
@@ -327,7 +336,11 @@ export const Home = ({ isMobile }) => {
 
     setDialogOpen(null);
     setActiveMenu(null);
-    dispatch(setLists(newLists));
+
+    // Display only non-deleted lists
+    dispatch(setLists(newLists.filter((l) => !l._deleted)));
+
+    // Store all lists (including deleted markers) for sync
     localStorage.setItem("owb.lists", JSON.stringify(newLists));
     pushToOWR(newLists);
   };
