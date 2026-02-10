@@ -43,6 +43,14 @@
   margin-top: 10px;
 }
 
+.game-view__stats .stats thead {
+  background-color: var(--color-header);
+}
+
+.game-view__stats .stats th {
+  color: var(--color-font-light);
+}
+
 .game-view__section {
   margin-bottom: 1rem;
 }
