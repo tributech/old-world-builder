@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import { Switch, Route, BrowserRouter } from "react-router-dom";
+import { Switch, Route, BrowserRouter, HashRouter } from "react-router-dom";
+import { isMobileAppContext } from "./utils/owr-sync";
 
 import { NewList } from "./pages/new-list";
 import { Editor } from "./pages/editor";
@@ -25,6 +26,7 @@ import { CustomDatasets } from "./pages/custom-datasets";
 import { setLists } from "./state/lists";
 import { setSettings } from "./state/settings";
 import { Header, Main } from "./components/page";
+import { pullFromOWR, cleanupDeletedLists } from "./utils/owr-sync";
 
 import "./App.css";
 
@@ -35,11 +37,47 @@ export const App = () => {
   );
 
   useEffect(() => {
-    const localLists = localStorage.getItem("owb.lists");
-    const localSettings = localStorage.getItem("owb.settings");
+    const initApp = async () => {
+      console.log("🚀 App.js: Initializing app");
+      console.log("   isMobileAppContext:", isMobileAppContext());
+      console.log("   window.__OWR_AUTH__:", window.__OWR_AUTH__);
+      console.log("   window.__OWR_CONFIG__:", window.__OWR_CONFIG__);
 
-    dispatch(setLists(JSON.parse(localLists)));
-    dispatch(setSettings(JSON.parse(localSettings)));
+      const localListsRaw = localStorage.getItem("owb.lists");
+      const localSettings = localStorage.getItem("owb.settings");
+      const localLists = JSON.parse(localListsRaw) || [];
+
+      console.log("📋 App.js: Loaded local lists:", localLists.length);
+
+      dispatch(setSettings(JSON.parse(localSettings)));
+
+      // IMMEDIATELY show local lists (filter out deleted) to avoid empty flash
+      const displayLists = localLists.filter((l) => !l._deleted);
+      dispatch(setLists(displayLists));
+      console.log("📋 App.js: Immediately showing", displayLists.length, "local lists");
+
+      // Then sync with OWR in background (will gracefully fail if not authenticated)
+      try {
+        console.log("🔄 App.js: Calling pullFromOWR...");
+        const mergedLists = await pullFromOWR(localLists);
+        const cleanMerged = mergedLists.filter((l) => !l._deleted);
+        console.log("✅ App.js: pullFromOWR returned", cleanMerged.length, "lists");
+
+        // Only update if there are actual changes
+        if (JSON.stringify(cleanMerged) !== JSON.stringify(displayLists)) {
+          localStorage.setItem("owb.lists", JSON.stringify(mergedLists));
+          dispatch(setLists(cleanMerged));
+        }
+
+        // Cleanup deleted lists from storage after successful sync
+        cleanupDeletedLists();
+      } catch (e) {
+        console.error("❌ App.js: Error during pullFromOWR:", e);
+        // Already showing local lists, no action needed
+      }
+    };
+
+    initApp();
   }, [dispatch]);
 
   useEffect(() => {
@@ -54,8 +92,12 @@ export const App = () => {
     }
   }, []);
 
+  // Use HashRouter for mobile app (file:// URLs don't work with BrowserRouter)
+  const Router = isMobileAppContext() ? HashRouter : BrowserRouter;
+  const routerProps = isMobileAppContext() ? {} : { basename: "/builder" };
+
   return (
-    <BrowserRouter>
+    <Router {...routerProps}>
       {isMobile ? (
         <Switch>
           <Route path="/editor/:listId/edit">{<EditList isMobile />}</Route>
@@ -103,7 +145,7 @@ export const App = () => {
           <Route path="/print/:listId">{<Print />}</Route>
           <Route path="/game-view/:listId">{<GameView />}</Route>
           <Route path="/">
-            <Header headline="Old World Builder" hasMainNavigation />
+            <Header headline="Old World Builder" hasMainNavigation hasOWRButton />
             <Main isDesktop>
               <section className="column">
                 <Home />
@@ -143,6 +185,6 @@ export const App = () => {
           </Route>
         </Switch>
       )}
-    </BrowserRouter>
+    </Router>
   );
 };
