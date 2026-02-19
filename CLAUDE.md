@@ -31,7 +31,7 @@ git tag -f owr_latest
 git push origin owr_latest --force
 ```
 
-The `owr_latest` tag **must always be updated** after rebasing onto upstream. This tag marks the latest state of our fork for OWR integration. A GitHub Action (`.github/workflows/sync-upstream.yml`) automates this daily at 6am UTC.
+The `owr_latest` tag **must always be updated** after any push to `main` (not just rebases). Other repos (e.g. `owr-android`) pull from this tag, so it must always point to the latest commit. A GitHub Action (`.github/workflows/sync-upstream.yml`) automates the upstream rebase + retag daily at 6am UTC.
 
 ## Architecture
 
