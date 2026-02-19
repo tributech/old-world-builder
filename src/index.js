@@ -17,15 +17,15 @@ import Italian from "./i18n/it.json";
 import Polish from "./i18n/pl.json";
 import Chinese from "./i18n/cn.json";
 
-// Sentry error tracking
-if (process.env.NODE_ENV !== "development") {
-  Sentry.init({
-    dsn: "https://3947feb62e2f5348c1759e8d4d9ed084@o314295.ingest.sentry.io/4506569636642816",
-    integrations: [],
-    environment: process.env.NODE_ENV,
-    release: `owb@${process.env.REACT_APP_VERSION}`,
-  });
-}
+// Sentry error tracking - disabled for OWR deployment
+// if (process.env.NODE_ENV !== "development") {
+//   Sentry.init({
+//     dsn: "https://3947feb62e2f5348c1759e8d4d9ed084@o314295.ingest.sentry.io/4506569636642816",
+//     integrations: [],
+//     environment: process.env.NODE_ENV,
+//     release: `owb@${process.env.REACT_APP_VERSION}`,
+//   });
+// }
 
 const metaDescription = {
   de: "Armeebauer für Warhammer: The Old World.",

@@ -12,6 +12,7 @@ import { getGameSystems } from "../../utils/game-systems";
 import { getRandomId } from "../../utils/id";
 import { useLanguage } from "../../utils/useLanguage";
 import { setLists } from "../../state/lists";
+import { setItem } from "../../utils/storage";
 import { RulesIndex, RuleWithIcon } from "../../components/rules-index";
 
 import { nameMap } from "../magic";
@@ -93,7 +94,7 @@ export const NewList = ({ isMobile }) => {
     };
     const newLists = [newList, ...lists];
 
-    localStorage.setItem("owb.lists", JSON.stringify(newLists));
+    setItem("owb.lists", JSON.stringify(newLists));
     dispatch(setLists(newLists));
 
     setRedirect(newId);

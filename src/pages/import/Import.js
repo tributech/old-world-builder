@@ -7,6 +7,7 @@ import { Button } from "../../components/button";
 import { Header, Main } from "../../components/page";
 import { getRandomId } from "../../utils/id";
 import { setLists } from "../../state/lists";
+import { setItem } from "../../utils/storage";
 
 import "./Import.css";
 
@@ -43,7 +44,7 @@ export const Import = ({ isMobile }) => {
       const importedList = { ...JSON.parse(event.target.result), id: newId };
       const newLists = [...lists, importedList];
 
-      localStorage.setItem("owb.lists", JSON.stringify(newLists));
+      setItem("owb.lists", JSON.stringify(newLists));
       dispatch(setLists(newLists));
       setRedirect(importedList.id);
     };

@@ -28,7 +28,7 @@ import { nameMap } from "../magic";
 import { editUnit, removeUnit, duplicateUnit } from "../../state/lists";
 import { setArmy } from "../../state/army";
 import { useLanguage } from "../../utils/useLanguage";
-import { updateLocalList } from "../../utils/list";
+import { updateLocalList } from "../../utils/owr-list";
 import { getRandomId } from "../../utils/id";
 import { getArmyData } from "../../utils/army";
 import { namesForSpread } from "../../utils/string";

@@ -6,7 +6,7 @@ import { Helmet } from "react-helmet-async";
 
 import { Header, Main } from "../../components/page";
 import { editUnit } from "../../state/lists";
-import { updateLocalList } from "../../utils/list";
+import { updateLocalList } from "../../utils/owr-list";
 import { useLanguage } from "../../utils/useLanguage";
 
 import "./Rename.css";

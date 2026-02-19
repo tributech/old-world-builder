@@ -9,7 +9,7 @@ import { NumberInput } from "../../components/number-input";
 import { Select } from "../../components/select";
 import { Icon } from "../../components/icon";
 import { updateList } from "../../state/lists";
-import { updateLocalList } from "../../utils/list";
+import { updateLocalList } from "../../utils/owr-list";
 import { useLanguage } from "../../utils/useLanguage";
 
 import { nameMap } from "../magic";
