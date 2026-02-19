@@ -160,7 +160,7 @@ const requestTokenRefresh = () => {
     // Try iOS bridge
     if (window.webkit?.messageHandlers?.owrBridge) {
       try {
-        window.webkit.messageHandlers.owrBridge.postMessage({ type: "requestTokenRefresh" });
+        window.webkit.messageHandlers.owrBridge.postMessage("requestTokenRefresh");
         return; // Wait for callback
       } catch (e) {
         console.warn("OWR Sync: iOS bridge requestTokenRefresh failed:", e);
@@ -188,7 +188,7 @@ const notifyNativeAuthFailure = () => {
     }
   } else if (window.webkit?.messageHandlers?.owrBridge) {
     try {
-      window.webkit.messageHandlers.owrBridge.postMessage({ type: "authFailure" });
+      window.webkit.messageHandlers.owrBridge.postMessage("authFailure");
     } catch (e) {
       console.warn("OWR Sync: iOS bridge onAuthFailure failed:", e);
     }
