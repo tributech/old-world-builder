@@ -18,21 +18,20 @@ export const Privacy = () => {
     <>
       <Helmet>
         <title>
-          {`Old World Builder | ${intl.formatMessage({
+          {`Battle Builder | ${intl.formatMessage({
             id: "footer.privacy",
           })}`}
         </title>
-        <link rel="canonical" href="https://old-world-builder.com/privacy" />
       </Helmet>
 
-      <Header headline="Old World Builder" hasMainNavigation hasHomeButton />
+      <Header headline="Battle Builder" hasMainNavigation hasHomeButton />
 
       <Main compact>
         <h2 className="page-headline">
           <FormattedMessage id="footer.privacy" />
         </h2>
         <p>
-          The "Old World Builder" is built as an Open Source app. This SERVICE
+          "Battle Builder" is built as an Open Source app. This SERVICE
           is provided by at no cost and is intended for use as is.
         </p>
         <p>
@@ -184,7 +183,7 @@ export const Privacy = () => {
         <p>
           If you have any questions or suggestions about my Privacy Policy, do
           not hesitate to contact me at{" "}
-          <Link to="/help">old-world-builder.com/help</Link>.
+          <Link to="/help">the help page</Link>.
         </p>
       </Main>
     </>

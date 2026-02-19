@@ -248,7 +248,7 @@ export const Add = ({ isMobile }) => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list?.name}`}</title>
+        <title>{`Battle Builder | ${list?.name}`}</title>
       </Helmet>
 
       {isMobile && (

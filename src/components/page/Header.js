@@ -7,6 +7,7 @@ import { useIntl } from "react-intl";
 import { Button } from "../../components/button";
 import { Icon } from "../../components/icon";
 
+import owrLogoWhite from "../../assets/owr-logo-white.svg";
 import "./Header.css";
 
 export const Header = ({
@@ -101,9 +102,14 @@ export const Header = ({
       <div className="header__text">
         {headline && (
           <>
-            {headline === "Old World Builder" ? (
+            {headline === "Battle Builder" ? (
               <h1 className="header__name">
-                <Link className="header__name-link" to="/">
+                <Link className="header__name-link header__brand" to="/">
+                  <img
+                    src={owrLogoWhite}
+                    alt="OWR"
+                    className="header__brand-logo"
+                  />
                   {headline}
                 </Link>
               </h1>
