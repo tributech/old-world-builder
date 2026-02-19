@@ -12,10 +12,11 @@ import { ListItem, OrderableList } from "../../components/list";
 import { Header, Main } from "../../components/page";
 import { Dialog } from "../../components/dialog";
 import { getAllPoints } from "../../utils/points";
-import { useTimezone } from "../../utils/useTimezone";
+
 import { setArmy } from "../../state/army";
 import { setItems } from "../../state/items";
 import owb from "../../assets/army-icons/owb.svg";
+import owrLogo from "../../assets/owr-logo-black.svg";
 import theEmpire from "../../assets/army-icons/the-empire.svg";
 import dwarfs from "../../assets/army-icons/dwarfs.svg";
 import greenskins from "../../assets/army-icons/greenskins.svg";
@@ -34,10 +35,6 @@ import chaosDwarfs from "../../assets/army-icons/chaos-dwarfs.svg";
 import bretonnia from "../../assets/army-icons/bretonnia.svg";
 import cathay from "../../assets/army-icons/cathay.svg";
 import renegade from "../../assets/army-icons/renegade.svg";
-import forg3dBanner from "../../assets/forg3d.jpg";
-import fantasyweltDe from "../../assets/fantasywelt_de.jpg";
-import fantasyweltEn from "../../assets/fantasywelt_en.jpg";
-import mwgForge from "../../assets/mwg-forge.gif";
 import { swap } from "../../utils/collection";
 import { useLanguage } from "../../utils/useLanguage";
 import { updateLocalList, updateListsFolder } from "../../utils/list";
@@ -157,7 +154,6 @@ export const Home = ({ isMobile }) => {
 
   const location = useLocation();
   const { language } = useLanguage();
-  const { timezone } = useTimezone();
   const dispatch = useDispatch();
   const intl = useIntl();
   const [listsInFolder, setListsInFolder] = useState([]);
@@ -384,9 +380,8 @@ export const Home = ({ isMobile }) => {
     <>
       <Helmet>
         <title>
-          Old World Builder - Army builder for Warhammer: The Old World
+          Battle Builder - Army list builder for Warhammer: The Old World
         </title>
-        <link rel="canonical" href="https://old-world-builder.com/" />
       </Helmet>
 
       <Dialog
@@ -530,7 +525,7 @@ export const Home = ({ isMobile }) => {
         </form>
       </Dialog>
 
-      {isMobile && <Header headline="Old World Builder" hasMainNavigation />}
+      {isMobile && <Header headline="Battle Builder" hasMainNavigation />}
       <MainComponent>
         {listsWithoutFolders.length > 0 && (
           <section className="column-header home__header">
@@ -585,10 +580,10 @@ export const Home = ({ isMobile }) => {
         {listsWithoutFolders.length === 0 && (
           <>
             <img
-              src={owb}
+              src={owrLogo}
               alt=""
-              width="100"
-              height="100"
+              width="120"
+              height="120"
               className="home__logo"
             />
             <i className="home__empty">
@@ -752,62 +747,6 @@ export const Home = ({ isMobile }) => {
         >
           <FormattedMessage id="home.import" />
         </Button>
-
-        <hr />
-
-        <p>
-          <b>
-            <i>
-              <FormattedMessage id="home.sponsored" />
-            </i>
-          </b>
-        </p>
-
-        <a
-          className="home__banner-link"
-          href="https://tinyurl.com/Forg3dOWB"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img
-            src={forg3dBanner}
-            className="home__banner-image"
-            alt={intl.formatMessage({ id: "home.forg3d" })}
-            loading="lazy"
-          />
-        </a>
-
-        {timezone === "europe" ? (
-          <a
-            className="home__banner-link"
-            href={`https://www.fantasywelt.de/?wsa=jcdi7h53acjhc${
-              language === "de" ? "&lang=ger" : "&lang=eng"
-            }`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <img
-              src={language === "de" ? fantasyweltDe : fantasyweltEn}
-              className="home__banner-image"
-              alt={intl.formatMessage({ id: "home.fantasywelt" })}
-              loading="lazy"
-            />
-          </a>
-        ) : (
-          <a
-            className="home__banner-link"
-            href="https://miniwargamingforge.com?sca_ref=6115787.XxehNS6tUCHiFExD"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <img
-              src={mwgForge}
-              className="home__banner-image"
-              alt={intl.formatMessage({ id: "home.mwgForge" })}
-              loading="lazy"
-            />
-          </a>
-        )}
       </MainComponent>
     </>
   );
