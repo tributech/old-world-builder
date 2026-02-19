@@ -14,7 +14,6 @@ import italy from "../../assets/italy.svg";
 import polen from "../../assets/polen.svg";
 import china from "../../assets/china.svg";
 
-import { InstallPWA } from "../install-pwa";
 import "./Page.css";
 
 export const Main = ({ className, children, isDesktop, compact, loading }) => {
@@ -46,7 +45,6 @@ export const Main = ({ className, children, isDesktop, compact, loading }) => {
             <Link to="/help">
               <FormattedMessage id="footer.help" />
             </Link>
-            <InstallPWA />
             <Link to="/changelog">
               <FormattedMessage id="footer.changelog" />
             </Link>

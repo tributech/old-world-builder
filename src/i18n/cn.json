@@ -99,8 +99,6 @@
   "misc.error.battleMarch25PercentPerRare": "最多25%的分数可以花费到一个稀有单位上",
   "misc.error.battleMarch25PercentPerMercenary": "最多25%的分数可以花费到一个雇佣兵单位上",
   "misc.error.battleMarchMultiple0XUnits": "你的军表中只能包含一个'每1000分0-X个'的单位",
-  "pwa.button": "安装app",
-  "pwa.prompt": "Battle Builder可以作为应用安装到您的设备上。现在安装？",
   "editor.add": "添加",
   "editor.lords": "领主",
   "editor.heroes": "英雄",
