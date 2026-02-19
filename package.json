@@ -1,8 +1,8 @@
 {
-  "name": "old-world-builder",
+  "name": "battle-builder",
   "version": "1.26.7",
   "author": "Nico Thiebes",
-  "homepage": "https://old-world-builder.com",
+  "homepage": "/builder",
   "private": true,
   "dependencies": {
     "@reduxjs/toolkit": "^1.7.2",
@@ -29,7 +29,6 @@
     "workbox-cacheable-response": "^5.1.4",
     "workbox-core": "^5.1.4",
     "workbox-expiration": "^5.1.4",
-    "workbox-google-analytics": "^5.1.4",
     "workbox-navigation-preload": "^5.1.4",
     "workbox-precaching": "^5.1.4",
     "workbox-range-requests": "^5.1.4",

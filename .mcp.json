@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest", "--isolated"]
+    },
+    "postgres-owr": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://localhost:5432/owr_dev"
+      ]
+    },
+    "owr-atlassian": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "CONFLUENCE_URL",
+        "-e",
+        "CONFLUENCE_USERNAME",
+        "-e",
+        "CONFLUENCE_API_TOKEN",
+        "-e",
+        "JIRA_URL",
+        "-e",
+        "JIRA_USERNAME",
+        "-e",
+        "JIRA_API_TOKEN",
+        "ghcr.io/sooperset/mcp-atlassian:latest"
+      ],
+      "env": {
+        "CONFLUENCE_URL": "https://oldworldrankings.atlassian.net/wiki",
+        "CONFLUENCE_USERNAME": "colin.goudie@tributech.com.au",
+        "CONFLUENCE_API_TOKEN": "${ATLASSIAN_API_TOKEN_PERSONAL}",
+        "JIRA_URL": "https://oldworldrankings.atlassian.net",
+        "JIRA_USERNAME": "colin.goudie@tributech.com.au",
+        "JIRA_API_TOKEN": "${ATLASSIAN_API_TOKEN_PERSONAL}"
+      }
+    }
+  }
+}

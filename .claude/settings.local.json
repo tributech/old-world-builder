@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git rebase:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(git stash:*)",
+      "Bash(wc:*)",
+      "Bash(git tag:*)",
+      "Bash(xargs:*)",
+      "Bash(ls:*)",
+      "Bash(git rev-list:*)",
+      "mcp__owr-atlassian__jira_get_issue",
+      "Bash(git checkout:*)",
+      "Bash(tr:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)",
+      "Bash(git merge:*)",
+      "Bash(git diff:*)",
+      "Bash(git reset:*)",
+      "Bash(git branch:*)",
+      "Bash(while read hash msg)",
+      "Bash(do echo \"=== $hash $msg ===\")",
+      "Bash(git diff-tree:*)",
+      "Bash(done)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "chrome-devtools",
+    "postgres-owr",
+    "owr-atlassian"
+  ]
+}
