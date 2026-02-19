@@ -35,9 +35,11 @@ import chaosDwarfs from "../../assets/army-icons/chaos-dwarfs.svg";
 import bretonnia from "../../assets/army-icons/bretonnia.svg";
 import cathay from "../../assets/army-icons/cathay.svg";
 import renegade from "../../assets/army-icons/renegade.svg";
-import { swap } from "../../utils/collection";
 import { useLanguage } from "../../utils/useLanguage";
-import { updateLocalList, updateListsFolder } from "../../utils/list";
+import { updateLocalList, updateListsFolder } from "../../utils/owr-list";
+import { sortByRank, ensureRanks, reorderList, reorderFolder } from "../../utils/list-ordering";
+import { generateRank } from "../../utils/lexorank";
+import { pushToOWR } from "../../utils/owr-sync";
 import { setLists, toggleFolder, updateList } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
 import { getRandomId } from "../../utils/id";
@@ -71,7 +73,25 @@ const armyIconMap = {
 export const Home = ({ isMobile }) => {
   const MainComponent = isMobile ? Main : Fragment;
   const settings = useSelector((state) => state.settings);
-  let lists = updateListsFolder(useSelector((state) => state.lists));
+  const dispatch = useDispatch();
+  const rawLists = useSelector((state) => state.lists);
+
+  // Ensure all lists have ranks (migration for legacy lists)
+  // This persists ranks to localStorage/sync when lists without ranks are detected
+  useEffect(() => {
+    if (!rawLists || rawLists.length === 0) return;
+    const { lists: withRanks, needsUpdate } = ensureRanks(rawLists);
+    if (needsUpdate) {
+      console.log("Assigning ranks to lists:", withRanks);
+      localStorage.setItem("owb.lists", JSON.stringify(withRanks));
+      pushToOWR(withRanks);
+      dispatch(setLists(withRanks));
+    }
+  }, [rawLists, dispatch]);
+
+  // Sort by rank - folder values are stored explicitly and synced
+  // (ensureRanks handles migration of legacy lists without ranks/folders)
+  let lists = sortByRank(ensureRanks(rawLists).lists);
 
   // Sort lists based on the current sorting setting
   switch (settings.listSorting) {
@@ -154,7 +174,6 @@ export const Home = ({ isMobile }) => {
 
   const location = useLocation();
   const { language } = useLanguage();
-  const dispatch = useDispatch();
   const intl = useIntl();
   const [listsInFolder, setListsInFolder] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(null);
@@ -169,60 +188,35 @@ export const Home = ({ isMobile }) => {
   const updateLocalSettings = (newSettings) => {
     localStorage.setItem("owb.settings", JSON.stringify(newSettings));
   };
+  const folders = lists.filter((list) => list.type === "folder");
+
   const handleListMoved = ({ sourceIndex, destinationIndex }) => {
-    const draggedItem = lists.find((list, index) => index === sourceIndex);
+    // Indices from react-beautiful-dnd are into the full lists array
+    const draggedItem = lists[sourceIndex];
     const difference = sourceIndex - destinationIndex;
 
     setListsInFolder([]);
 
-    if (difference === 0) {
+    if (difference === 0 || !draggedItem) {
       return;
     }
 
     if (draggedItem.type === "folder") {
-      const listBeforeDestination = lists.find(
-        (_, index) => index === destinationIndex - 1,
-      );
-      const listAtDestination = lists.find(
-        (_, index) => index === destinationIndex,
-      );
-      const listAfterDestination = lists.find(
-        (_, index) => index === destinationIndex + 1,
-      );
-
-      if (
-        !listBeforeDestination ||
-        !listAfterDestination ||
-        (difference > 0 && listAtDestination.type === "folder") || // Moving up
-        (difference < 0 && listAfterDestination.type === "folder") // Moving down
-      ) {
-        let newLists = swap(lists, sourceIndex, destinationIndex);
-        const listsInFolder = lists.filter(
-          (list) => list.folder === draggedItem.id,
-        );
-
-        listsInFolder.forEach((_, index) => {
-          newLists = swap(
-            newLists,
-            sourceIndex + (destinationIndex < sourceIndex ? 1 + index : 0),
-            destinationIndex + (destinationIndex < sourceIndex ? 1 + index : 0),
-          );
-        });
-        newLists = updateListsFolder(newLists);
-
-        localStorage.setItem("owb.lists", JSON.stringify(newLists));
-        dispatch(setLists(newLists));
-      }
-    } else {
-      let newLists = updateListsFolder(
-        swap(lists, sourceIndex, destinationIndex),
-      );
+      // Use reorderFolder - only changes folder's rank, contents follow via sort
+      const newLists = reorderFolder(lists, sourceIndex, destinationIndex);
 
       localStorage.setItem("owb.lists", JSON.stringify(newLists));
+      pushToOWR(newLists);
+      dispatch(setLists(newLists));
+    } else {
+      // Use reorderList to set rank and folder explicitly
+      let newLists = reorderList(lists, sourceIndex, destinationIndex);
+
+      localStorage.setItem("owb.lists", JSON.stringify(newLists));
+      pushToOWR(newLists);
       dispatch(setLists(newLists));
     }
   };
-  const folders = lists.filter((list) => list.type === "folder");
   const listsWithoutFolders = lists.filter((list) => list.type !== "folder");
   const moreButtonsFolder = [
     {
@@ -312,11 +306,20 @@ export const Home = ({ isMobile }) => {
     setFolderName("");
   };
   const handleDeleteConfirm = () => {
-    let newLists = lists.filter((list) => list.id !== activeMenu);
+    // Mark the list as deleted instead of filtering it out
+    // This allows the deletion to sync properly to the server
+    let newLists = lists.map((list) =>
+      list.id === activeMenu
+        ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
+        : list
+    );
 
+    // For folder deletion with "delete contents" option, also mark children
     if (activeDeleteOption === "delete") {
-      newLists = newLists.filter(
-        (list) => list.folder !== activeMenu || !list.folder,
+      newLists = newLists.map((list) =>
+        list.folder === activeMenu
+          ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
+          : list
       );
     }
 
@@ -324,8 +327,13 @@ export const Home = ({ isMobile }) => {
 
     setDialogOpen(null);
     setActiveMenu(null);
-    dispatch(setLists(newLists));
+
+    // Display only non-deleted lists
+    dispatch(setLists(newLists.filter((l) => !l._deleted)));
+
+    // Store all lists (including deleted markers) for sync
     localStorage.setItem("owb.lists", JSON.stringify(newLists));
+    pushToOWR(newLists);
   };
   const handleEditConfirm = () => {
     const list = lists.find((list) => list.id === activeMenu);
@@ -339,21 +347,37 @@ export const Home = ({ isMobile }) => {
     });
   };
   const handleNewConfirm = () => {
+    // Find ALL top-level items (folders are top-level with folder:null)
+    const topLevelItems = lists.filter(
+      (item) => item.folder === null || item.folder === undefined || item.type === "folder"
+    );
+
+    // Find the item with the highest (last) rank to place new folder after it
+    // This ensures new folder appears at the absolute bottom in display order
+    const lastTopLevelItem = topLevelItems.sort((a, b) => {
+      if (!a.rank) return -1;
+      if (!b.rank) return 1;
+      return a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0;
+    }).pop();
+
+    const newRank = generateRank(lastTopLevelItem?.rank, null); // Generate rank after last item
+
     const newLists = updateListsFolder([
+      ...lists,  // Existing lists first - prevents capturing folder:null lists
       {
         id: `folder-${getRandomId()}`,
         name: folderName || intl.formatMessage({ id: "home.newFolder" }),
         type: "folder",
         open: true,
+        rank: newRank,  // Assign rank to place at absolute bottom
       },
-      ...lists,
     ]);
 
     localStorage.setItem("owb.lists", JSON.stringify(newLists));
+    pushToOWR(newLists);
     dispatch(setLists(newLists));
     setFolderName("");
     setDialogOpen(null);
-    window.scrollTo(0, 0);
   };
   const handleDragStart = (start) => {
     const draggedItem = lists.find(
@@ -525,7 +549,7 @@ export const Home = ({ isMobile }) => {
         </form>
       </Dialog>
 
-      {isMobile && <Header headline="Battle Builder" hasMainNavigation />}
+      {isMobile && <Header headline="Battle Builder" hasMainNavigation hasOWRButton />}
       <MainComponent>
         {listsWithoutFolders.length > 0 && (
           <section className="column-header home__header">

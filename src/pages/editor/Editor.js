@@ -18,7 +18,7 @@ import { throttle } from "../../utils/throttle";
 import { getUnitPoints, getPoints, getAllPoints } from "../../utils/points";
 import { useLanguage } from "../../utils/useLanguage";
 import { validateList } from "../../utils/validation";
-import { removeFromLocalList, updateLocalList } from "../../utils/list";
+import { removeFromLocalList, updateLocalList } from "../../utils/owr-list";
 import { deleteList, moveUnit } from "../../state/lists";
 import { setErrors } from "../../state/errors";
 

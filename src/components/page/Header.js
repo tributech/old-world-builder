@@ -6,6 +6,8 @@ import { useIntl } from "react-intl";
 
 import { Button } from "../../components/button";
 import { Icon } from "../../components/icon";
+import { SyncButton } from "../../components/sync-button";
+import { isMobileAppContext } from "../../utils/owr-sync";
 
 import owrLogoWhite from "../../assets/owr-logo-white.svg";
 import "./Header.css";
@@ -22,14 +24,29 @@ export const Header = ({
   hasMainNavigation,
   navigationIcon,
   hasHomeButton,
+  hasOWRButton,
   filters,
 }) => {
   const intl = useIntl();
   const location = useLocation();
   const [showMenu, setShowMenu] = useState(false);
+  const isMobile = isMobileAppContext();
   const Component = isSection ? "section" : "header";
   const handleMenuClick = () => {
     setShowMenu(!showMenu);
+  };
+  const handleBackToOWR = () => {
+    if (window.opener && !window.opener.closed) {
+      // Focus the OWR window by its name
+      window.open('', 'owr-main');
+    } else {
+      // No opener - navigate to OWR root
+      window.location.href = "/";
+    }
+  };
+  const handleLogout = () => {
+    // Navigate to custom scheme URL that Android WebView will intercept
+    window.location.href = "owr://logout";
   };
   const navigationLinks = [
     {
@@ -60,6 +77,12 @@ export const Header = ({
       to: "/custom-datasets",
       icon: "datasets",
     },
+    // Show logout option only in mobile app context
+    ...(isMobileAppContext() ? [{
+      name: "Logout",
+      callback: handleLogout,
+      icon: "close",
+    }] : []),
   ];
   const navigation = hasMainNavigation ? navigationLinks : moreButton;
 
@@ -69,7 +92,7 @@ export const Header = ({
 
   return (
     <Component
-      className={classNames(isSection ? "column-header" : "header", className)}
+      className={classNames(isSection ? "column-header" : "header", isMobile && "header--webview", className)}
     >
       {to ? (
         <Button
@@ -85,7 +108,16 @@ export const Header = ({
         />
       ) : (
         <>
-          {hasHomeButton && (
+          {hasOWRButton && !isMobile && (
+            <Button
+              type="text"
+              onClick={handleBackToOWR}
+              label="Back to OWR"
+              color="light"
+              icon="back"
+            />
+          )}
+          {hasHomeButton && !hasOWRButton && (
             <Button
               type="text"
               to="/"
@@ -94,7 +126,7 @@ export const Header = ({
               icon="home"
             />
           )}
-          {navigation && !hasHomeButton && (
+          {navigation && !hasHomeButton && !hasOWRButton && (
             <div className="header__empty-icon" />
           )}
         </>
@@ -128,6 +160,10 @@ export const Header = ({
           </p>
         )}
       </div>
+      {/* Show sync button on list-related screens (not info pages like About/Help) */}
+      {((hasMainNavigation && !hasHomeButton) || (to && !isSection)) && (
+        <SyncButton />
+      )}
       {navigation ? (
         <Button
           type="text"
@@ -220,5 +256,6 @@ Header.propTypes = {
   hasPointsError: PropTypes.bool,
   hasMainNavigation: PropTypes.bool,
   hasHomeButton: PropTypes.bool,
+  hasOWRButton: PropTypes.bool,
   navigationIcon: PropTypes.string,
 };
