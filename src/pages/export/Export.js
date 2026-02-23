@@ -10,6 +10,7 @@ import { Expandable } from "../../components/expandable";
 import { useLanguage } from "../../utils/useLanguage";
 
 import { getListAsText } from "./get-list-as-text";
+import { TournamentSubmit } from "./TournamentSubmit";
 import "./Export.css";
 
 const getFile = ({ list, listText, asText }) => {
@@ -374,6 +375,8 @@ export const Export = ({ isMobile }) => {
             <FormattedMessage id="export.error" />
           </p>
         )}
+
+        <TournamentSubmit list={list} />
       </MainComponent>
     </>
   );

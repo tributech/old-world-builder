@@ -220,8 +220,9 @@ const handleAuthFailure = () => {
 };
 
 /**
- * Fetch wrapper that intercepts 401 responses in JWT mode.
+ * Low-level fetch wrapper that intercepts 401 responses in JWT mode.
  * Attempts token refresh once, retries the request, then calls handleAuthFailure on second failure.
+ * Internal only — external callers should use owrApiFetch.
  */
 const owrFetch = async (url, options = {}) => {
   const res = await fetch(url, getFetchOptions(options));
@@ -243,6 +244,23 @@ const owrFetch = async (url, options = {}) => {
   }
 
   return res;
+};
+
+/**
+ * Make an authenticated API call to OWR.
+ * Resolves web-style paths to the correct endpoint for the current auth mode.
+ * @param {string} path - Web API path (e.g., '/api/builder/tournaments')
+ * @param {Object} options - fetch options
+ * @returns {Promise<Response>}
+ */
+export const owrApiFetch = async (path, options = {}) => {
+  const baseUrl = isJwtMode()
+    ? window.__OWR_CONFIG__?.apiBaseUrl || ""
+    : "";
+  const resolvedPath = isJwtMode()
+    ? path.replace("/api/builder/", "/api/v1/builder/")
+    : path;
+  return owrFetch(`${baseUrl}${resolvedPath}`, options);
 };
 
 /**
@@ -313,11 +331,9 @@ export const pullFromOWR = async (localLists) => {
   notifySyncState();
 
   try {
-    const endpoint = getSyncEndpoint();
-    console.log("   📡 Fetching from:", endpoint);
-    console.log("   Fetch options:", JSON.stringify(getFetchOptions()));
+    console.log("   📡 Fetching sync...");
 
-    const res = await owrFetch(endpoint);
+    const res = await owrApiFetch(SYNC_PATH_WEB);
     console.log("   Response status:", res.status);
     console.log("   Response ok:", res.ok);
     console.log("   Response headers:", res.headers);
@@ -415,7 +431,7 @@ const syncListsNow = async (
   notifySyncState();
 
   try {
-    const res = await owrFetch(getSyncEndpoint(), {
+    const res = await owrApiFetch(SYNC_PATH_WEB, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lists: addTimestamps(lists) }),
@@ -479,7 +495,7 @@ export const forceSync = async () => {
     const localLists = JSON.parse(getItem("owb.lists")) || [];
 
     // Push to server
-    const pushRes = await owrFetch(getSyncEndpoint(), {
+    const pushRes = await owrApiFetch(SYNC_PATH_WEB, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lists: addTimestamps(localLists) }),
@@ -490,7 +506,7 @@ export const forceSync = async () => {
     }
 
     // Pull merged result from server
-    const pullRes = await owrFetch(getSyncEndpoint());
+    const pullRes = await owrApiFetch(SYNC_PATH_WEB);
     if (!pullRes.ok) {
       throw new Error(`Pull failed: ${pullRes.status}`);
     }

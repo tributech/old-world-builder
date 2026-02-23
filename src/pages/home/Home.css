@@ -127,3 +127,19 @@
 .home__sort-icon {
   margin-left: 0.5rem;
 }
+
+.home__tournament-icon {
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+  text-decoration: none;
+  filter: grayscale(100%);
+  transition: filter 0.15s;
+}
+
+.home__tournament-icon--pending {
+  filter: grayscale(0%) sepia(100%) saturate(300%) hue-rotate(350deg) brightness(0.9);
+}
+
+.home__tournament-icon--approved {
+  filter: grayscale(0%) sepia(100%) saturate(400%) hue-rotate(70deg) brightness(0.85);
+}
