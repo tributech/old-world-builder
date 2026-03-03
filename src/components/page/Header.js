@@ -144,6 +144,7 @@ export const Header = ({
                   />
                   {headline}
                 </Link>
+                <SyncButton />
               </h1>
             ) : (
               <h1 className="header__name">
@@ -160,8 +161,8 @@ export const Header = ({
           </p>
         )}
       </div>
-      {/* Show sync button on list-related screens (not info pages like About/Help) */}
-      {((hasMainNavigation && !hasHomeButton) || (to && !isSection)) && (
+      {/* Show sync button on sub-pages (editor, unit, etc.) */}
+      {headline !== "Battle Builder" && ((hasMainNavigation && !hasHomeButton) || (to && !isSection)) && (
         <SyncButton />
       )}
       {navigation ? (
