@@ -596,9 +596,11 @@ const splitDirtyLists = (timestampedLists) => {
 
   const syncedAtMs = new Date(serverSyncedAt).getTime();
   const dirty = timestampedLists.filter((list) => {
-    const updatedAtMs = list.updated_at
+    const parsed = list.updated_at
       ? new Date(list.updated_at).getTime()
-      : Infinity; // No timestamp → always send
+      : NaN;
+    // Missing or invalid timestamp → always send (safe fallback)
+    const updatedAtMs = Number.isNaN(parsed) ? Infinity : parsed;
     return updatedAtMs > syncedAtMs;
   });
 
@@ -802,6 +804,7 @@ export const setupVisibilitySync = (onSynced) => {
 export const resetAuth = () => {
   authError = false;
   isAuthenticated = true;
+  serverSyncedAt = null;
   notifySyncState();
   startPeriodicSync();
 };
