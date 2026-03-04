@@ -34,6 +34,7 @@ let refreshPromise = null;
 let syncStateListeners = [];
 let pendingSyncLists = null;
 let periodicSyncTimer = null;
+let serverSyncedAt = null; // Server's synced_at ISO8601 string for delta short-circuit
 
 /**
  * Subscribe to sync state changes
@@ -301,6 +302,7 @@ export const checkAuth = async () => {
  */
 export const resetAuthCache = () => {
   isAuthenticated = null;
+  serverSyncedAt = null;
 };
 
 /**
@@ -333,10 +335,14 @@ export const pullFromOWR = async (localLists) => {
   try {
     console.log("   📡 Fetching sync...");
 
-    const res = await owrApiFetch(SYNC_PATH_WEB);
+    // Send synced_at for short-circuit when we have a cached timestamp
+    const syncPath = serverSyncedAt
+      ? `${SYNC_PATH_WEB}?synced_at=${encodeURIComponent(serverSyncedAt)}`
+      : SYNC_PATH_WEB;
+
+    const res = await owrApiFetch(syncPath);
     console.log("   Response status:", res.status);
     console.log("   Response ok:", res.ok);
-    console.log("   Response headers:", res.headers);
 
     if (!res.ok) {
       const errorText = await res.text().catch(() => "Could not read response");
@@ -346,8 +352,21 @@ export const pullFromOWR = async (localLists) => {
     }
 
     const data = await res.json();
+
+    // Short-circuit: nothing changed on server since last sync
+    if (data.changed === false) {
+      console.log("   ✅ Server unchanged, using local lists");
+      lastSyncedAt = new Date();
+      return localLists;
+    }
+
     const serverLists = data.lists || [];
     console.log("   ✅ Got", serverLists.length, "lists from server");
+
+    // Track server's synced_at for future short-circuit
+    if (data.synced_at) {
+      serverSyncedAt = data.synced_at;
+    }
 
     // Scope localStorage to this user
     let effectiveLocalLists = localLists;
@@ -431,14 +450,33 @@ const syncListsNow = async (
   notifySyncState();
 
   try {
+    const timestampedLists = addTimestamps(lists);
+    const { dirty, known } = splitDirtyLists(timestampedLists);
     const res = await owrApiFetch(SYNC_PATH_WEB, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lists: addTimestamps(lists) }),
+      body: JSON.stringify({ lists: dirty, known }),
     });
     if (!res.ok) {
       throw new Error(`Push failed: ${res.status}`);
     }
+
+    // Apply server response to keep local state in sync
+    const data = await res.json();
+    if (data.synced_at) {
+      serverSyncedAt = data.synced_at;
+    }
+    const currentLocal = JSON.parse(getItem("owb.lists")) || [];
+    if (data.deleted_ids) {
+      // Delta response — apply only changes
+      const updated = applyDelta(currentLocal, data.lists || [], data.deleted_ids);
+      setItem("owb.lists", JSON.stringify(updated));
+    } else if (data.lists) {
+      // Full response (backward compat) — merge everything
+      const updated = mergeLists(currentLocal, data.lists);
+      setItem("owb.lists", JSON.stringify(updated));
+    }
+
     lastSyncedAt = new Date();
     if (clearDirtyOnSuccess) {
       hasPendingChanges = false;
@@ -493,27 +531,34 @@ export const forceSync = async () => {
   try {
     // Get current local lists
     const localLists = JSON.parse(getItem("owb.lists")) || [];
+    const timestampedLists = addTimestamps(localLists);
+    const { dirty, known } = splitDirtyLists(timestampedLists);
 
-    // Push to server
+    // Push dirty lists to server with known manifest for delta response
     const pushRes = await owrApiFetch(SYNC_PATH_WEB, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lists: addTimestamps(localLists) }),
+      body: JSON.stringify({ lists: dirty, known }),
     });
 
     if (!pushRes.ok) {
       throw new Error(`Push failed: ${pushRes.status}`);
     }
 
-    // Pull merged result from server
-    const pullRes = await owrApiFetch(SYNC_PATH_WEB);
-    if (!pullRes.ok) {
-      throw new Error(`Pull failed: ${pullRes.status}`);
+    const data = await pushRes.json();
+    if (data.synced_at) {
+      serverSyncedAt = data.synced_at;
     }
 
-    const data = await pullRes.json();
-    const serverLists = data.lists || [];
-    const mergedLists = mergeLists(localLists, serverLists);
+    // Apply delta or full merge from POST response
+    let mergedLists;
+    if (data.deleted_ids) {
+      // Delta response
+      mergedLists = applyDelta(localLists, data.lists || [], data.deleted_ids);
+    } else {
+      // Full response (backward compat)
+      mergedLists = mergeLists(localLists, data.lists || []);
+    }
 
     // Save merged lists
     setItem("owb.lists", JSON.stringify(mergedLists));
@@ -534,6 +579,77 @@ export const forceSync = async () => {
     isSyncing = false;
     notifySyncState();
   }
+};
+
+/**
+ * Split lists into dirty (need sending) and known (manifest only).
+ * Uses serverSyncedAt to determine which lists changed since last sync.
+ * Falls back to sending all lists when serverSyncedAt is unknown (first sync, app restart).
+ */
+const splitDirtyLists = (timestampedLists) => {
+  const known = buildKnownManifest(timestampedLists);
+
+  if (!serverSyncedAt) {
+    // No server timestamp — send everything (safe fallback)
+    return { dirty: timestampedLists, known };
+  }
+
+  const syncedAtMs = new Date(serverSyncedAt).getTime();
+  const dirty = timestampedLists.filter((list) => {
+    const updatedAtMs = list.updated_at
+      ? new Date(list.updated_at).getTime()
+      : Infinity; // No timestamp → always send
+    return updatedAtMs > syncedAtMs;
+  });
+
+  return { dirty, known };
+};
+
+/**
+ * Build a compact manifest of { id: updated_at } for all local lists.
+ * Sent with POST to enable delta responses from the server.
+ */
+const buildKnownManifest = (lists) => {
+  const known = {};
+  lists.forEach((list) => {
+    if (list.id && list.updated_at) {
+      known[list.id] = list.updated_at;
+    }
+  });
+  return known;
+};
+
+/**
+ * Apply a delta response (changed lists + deleted IDs) to local lists.
+ * Used when the server returns only what changed instead of the full array.
+ */
+const applyDelta = (localLists, deltaLists, deletedIds) => {
+  const deleteSet = new Set(deletedIds || []);
+  const deltaMap = new Map();
+  deltaLists.forEach((list) => deltaMap.set(list.id, list));
+
+  const localIds = new Set();
+
+  // Update existing lists, remove deleted ones
+  const result = [];
+  localLists.forEach((list) => {
+    localIds.add(list.id);
+    if (deleteSet.has(list.id)) return; // Server says remove it
+    if (deltaMap.has(list.id)) {
+      result.push(deltaMap.get(list.id)); // Server has newer version
+    } else {
+      result.push(list); // Unchanged
+    }
+  });
+
+  // Add brand new lists from delta (not already local)
+  deltaLists.forEach((list) => {
+    if (!localIds.has(list.id)) {
+      result.push(list);
+    }
+  });
+
+  return sortByRank(result);
 };
 
 /**
