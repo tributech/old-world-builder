@@ -56,17 +56,17 @@ export const SyncButton = () => {
     return null;
   }
 
-  // Not entitled — show upgrade-style button
+  // Not entitled — show "Go Pro" pill button
   if (!syncState.cloudSyncEntitled) {
     return (
       <>
         <button
-          className="sync-button sync-button--upgrade"
+          className="sync-button sync-button--go-pro"
           onClick={handleClick}
           title="Upgrade to Pro for cloud sync"
         >
           <Icon symbol="cloud-done" className="sync-button__icon" />
-          <span className="sync-button__pro-badge">PRO</span>
+          Go Pro
         </button>
         <SyncUpgradeDialog
           open={showUpgrade}

@@ -341,6 +341,10 @@ export const pullFromOWR = async (localLists) => {
 
   const authenticated = await checkAuth();
   console.log("   Auth check result:", authenticated);
+  if (!cloudSyncEntitled) {
+    console.log("   ⏭️ Not entitled to cloud sync, using local lists only");
+    return localLists;
+  }
   if (!authenticated) {
     console.warn("   ❌ Not authenticated, returning local lists only");
     return localLists;

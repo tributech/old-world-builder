@@ -10,9 +10,16 @@ export const hasDismissedSyncUpgrade = () =>
   localStorage.getItem(DISMISSED_KEY) === "true";
 
 export const SyncUpgradeDialog = ({ open, onClose }) => {
+  //const isNativeApp = true; // TODO: revert to !!window.__OWR_AUTH__
+  const isNativeApp = !!window.__OWR_AUTH__
+
   const handleUpgrade = () => {
     localStorage.setItem(DISMISSED_KEY, "true");
-    window.location.href = "/profile/subscription?upgrade=true";
+    if (isNativeApp) {
+      window.open("https://oldworldrankings.com/purchase", "_blank");
+    } else {
+      window.location.href = "/purchase";
+    }
   };
 
   const handleDismiss = () => {
@@ -33,15 +40,18 @@ export const SyncUpgradeDialog = ({ open, onClose }) => {
         </p>
         <p className="sync-upgrade__description">
           Cloud sync is available with <strong>OWR Pro</strong>.
+          {isNativeApp && " Upgrade at oldworldrankings.com."}
         </p>
-        <div className="sync-upgrade__actions">
-          <Button type="primary" fullWidth onClick={handleUpgrade}>
-            Upgrade to Pro
-          </Button>
-          <Button type="text" fullWidth onClick={handleDismiss}>
-            Maybe later
-          </Button>
-        </div>
+        {!isNativeApp && (
+          <div className="sync-upgrade__actions">
+            <Button type="primary" fullWidth onClick={handleUpgrade}>
+              Upgrade now
+            </Button>
+            <Button type="text" fullWidth onClick={handleDismiss}>
+              Maybe later
+            </Button>
+          </div>
+        )}
       </div>
     </Dialog>
   );
