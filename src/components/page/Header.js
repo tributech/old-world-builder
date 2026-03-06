@@ -56,27 +56,6 @@ export const Header = ({
       to: "/about",
       icon: "about",
     },
-    {
-      name: intl.formatMessage({
-        id: "footer.help",
-      }),
-      to: "/help",
-      icon: "help",
-    },
-    {
-      name: intl.formatMessage({
-        id: "footer.changelog",
-      }),
-      to: "/changelog",
-      icon: "news",
-    },
-    {
-      name: intl.formatMessage({
-        id: "footer.custom-datasets",
-      }),
-      to: "/custom-datasets",
-      icon: "datasets",
-    },
     // Show logout option only in mobile app context
     ...(isMobileAppContext() ? [{
       name: "Logout",
