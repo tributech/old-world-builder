@@ -136,18 +136,24 @@ function loadMagicItems() {
  */
 function buildMagicItemIndex(magicItemsData, armyId) {
   const index = new Map();
-  // Sections that are potentially relevant:
-  // "general" is always available
-  // army-specific section
-  // special sections like "forest-spites", "kindreds", etc.
+  // Load all sections — allied units may use items from their own army's section
+  // Priority: army-specific sections first, then all others
   const relevantSections = getRelevantMagicSections(armyId);
+  const allSections = Object.keys(magicItemsData);
+  const orderedSections = [
+    ...relevantSections,
+    ...allSections.filter((s) => !relevantSections.includes(s)),
+  ];
 
-  for (const section of relevantSections) {
+  for (const section of orderedSections) {
     const items = magicItemsData[section];
     if (!items) continue;
     for (const item of items) {
       const key = normalize(item.name_en);
-      index.set(key, { ...item, _section: section });
+      // Don't overwrite — first match wins (army-specific takes priority)
+      if (!index.has(key)) {
+        index.set(key, { ...item, _section: section });
+      }
     }
   }
   return index;
@@ -221,26 +227,44 @@ function getRelevantMagicSections(armyId) {
  *   485 - Miao Ying, The Storm Dragon, General, Wizard Level 2
  *   269 - 8 Jade Lancer, options...
  *     • 1x Ogre Loader, Gunpowder Bombs
+ *
+ * Format C (OWB text export):
+ *   ===
+ *   List Name [pts]
+ *   Warhammer: The Old World, Army, Composition
+ *   ===
+ *   ++ Characters [pts] ++
+ *   Unit Name [pts]
+ *   - option1
+ *   - option2 [sub-option]
  */
 function parseText(text) {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
 
-  // Detect format: if lines match "number - text" pattern, it's dash format
+  // Detect format
   const dashPattern = /^\d+\s+-\s+/;
-  const bracketPattern = /\[\d+pts\]/;
+  const bracketPattern = /\[\d+pts\]/i;
+  const owbCategoryPattern = /^\+\+\s+.+\s+\+\+$/;
 
   let dashCount = 0;
   let bracketCount = 0;
+  let owbCategoryCount = 0;
   for (const line of lines) {
     if (dashPattern.test(line)) dashCount++;
     if (bracketPattern.test(line)) bracketCount++;
+    if (owbCategoryPattern.test(line)) owbCategoryCount++;
   }
 
+  // Format C: OWB text export (++ Category [pts] ++ headers with - option lines)
+  if (owbCategoryCount >= 1) {
+    return parseTextOwbFormat(lines);
+  }
+  // Format B: dash/points-first
   if (dashCount > bracketCount) {
     return parseTextDashFormat(lines);
-  } else {
-    return parseTextBracketFormat(lines);
   }
+  // Format A: bracket/markdown
+  return parseTextBracketFormat(lines);
 }
 
 /**
@@ -444,6 +468,131 @@ function parseDashSubLine(line) {
 }
 
 /**
+ * Parse Format C: OWB's own text export format.
+ *
+ * Structure:
+ *   ===
+ *   List Name [pts]
+ *   Warhammer: The Old World, Army, Composition
+ *   ===
+ *   ++ Characters [pts] ++
+ *   Unit Name [pts]
+ *   - option1
+ *   - option2 [sub-option]
+ *   - On foot
+ *   13 Chaos Warriors [240 pts]
+ *   - Hand weapons
+ *   ---
+ *   Created with "Old World Builder"
+ */
+function parseTextOwbFormat(lines) {
+  const result = {
+    listName: "",
+    armyName: "",
+    compositionName: "",
+    totalPoints: 0,
+    categories: {},
+  };
+
+  let currentCategory = null;
+  let lastUnit = null;
+  let inHeader = false;
+  let headerLines = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Skip footer
+    if (line === "---" || line.startsWith("Created with")) continue;
+
+    // Header block between === lines
+    if (line === "===") {
+      if (!inHeader) {
+        inHeader = true;
+        headerLines = [];
+      } else {
+        inHeader = false;
+        // Parse header: line 1 = "List Name [pts]", line 2 = "Warhammer: TOW, Army, Composition"
+        if (headerLines.length >= 1) {
+          const titleMatch = headerLines[0].match(/^(.+?)\s*\[(\d+)\s*pts?\]/i);
+          if (titleMatch) {
+            result.listName = titleMatch[1].trim();
+            result.totalPoints = parseInt(titleMatch[2], 10);
+          } else {
+            result.listName = headerLines[0];
+          }
+        }
+        if (headerLines.length >= 2) {
+          // "Warhammer: The Old World, Warriors of Chaos, Open War"
+          const metaParts = headerLines[1].split(",").map((p) => p.trim());
+          if (metaParts.length >= 2) {
+            result.armyName = metaParts[1];
+          }
+          if (metaParts.length >= 3) {
+            result.compositionName = metaParts[2];
+          }
+        }
+      }
+      continue;
+    }
+    if (inHeader) {
+      headerLines.push(line);
+      continue;
+    }
+
+    // Category header: "++ Characters [650 pts] ++"
+    const catMatch = line.match(/^\+\+\s+(.+?)\s*(?:\[[\d,.]+ pts?\])?\s*\+\+$/i);
+    if (catMatch) {
+      currentCategory = catMatch[1].trim().toLowerCase();
+      // Normalize category names: "Core Units" → "core", "Rare Units" → "rare"
+      currentCategory = currentCategory
+        .replace(/\s*units?\s*$/i, "")
+        .trim();
+      if (!result.categories[currentCategory]) {
+        result.categories[currentCategory] = [];
+      }
+      lastUnit = null;
+      continue;
+    }
+
+    // Option line: "- Hand weapon" or "- Wizard [Level 4 Wizard]" or "- Mark of Chaos [Mark of Tzeentch]"
+    if (line.startsWith("- ") && lastUnit) {
+      const optLine = line.substring(2).trim();
+      // Add to the unit's options text
+      if (lastUnit.optionsText) {
+        lastUnit.optionsText += ", " + optLine;
+      } else {
+        lastUnit.optionsText = optLine;
+      }
+      continue;
+    }
+
+    // Unit line: "Sorcerer Lord [315 pts]" or "13 Chaos Warriors [240 pts]"
+    if (currentCategory) {
+      const unitMatch = line.match(/^(?:(\d+)\s+)?(.+?)\s*\[(\d+)\s*pts?\]\s*$/i);
+      if (unitMatch) {
+        const unitLine = {
+          count: 1,
+          name: unitMatch[2].trim(),
+          _modelCount: unitMatch[1] ? parseInt(unitMatch[1], 10) : 0,
+          points: parseInt(unitMatch[3], 10),
+          optionsText: "",
+          subLines: [],
+        };
+        if (!result.categories[currentCategory]) {
+          result.categories[currentCategory] = [];
+        }
+        result.categories[currentCategory].push(unitLine);
+        lastUnit = unitLine;
+        continue;
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
  * Parse a unit header line like:
  *   "2x Deepwood Scouts [141pts]:"
  *   "Glade Lord [555pts]: Hand Weapon, Light Armour, ..."
@@ -543,12 +692,14 @@ function buildOwbList(parsed, armyData, magicItemIndex, armyId, armyComposition)
   // Build a flat lookup of all units by name
   const unitIndex = buildUnitIndex(armyData, armyComposition);
 
+  // Build a cross-army index for allies (lazy, only if needed)
+  let allArmiesIndex = null;
+
   // Process each category
   for (const [catName, units] of Object.entries(parsed.categories)) {
     // Special handling for _uncategorized (dash format - no category headers)
     if (catName === "_uncategorized") {
       for (const parsedUnit of units) {
-        // Resolve unit name for dash format (may need to try multiple name parts)
         const resolved = resolveDashFormatUnit(parsedUnit, unitIndex);
         if (!resolved) {
           warnings.push(`Unit not found in army data: "${parsedUnit.name}"`);
@@ -558,7 +709,6 @@ function buildOwbList(parsed, armyData, magicItemIndex, armyId, armyComposition)
         const { unitEntry, resolvedParsedUnit } = resolved;
         const owbCategory = unitEntry.category;
 
-        // Determine copies vs strength for dash format
         const { copies, strength } = interpretDashModelCount(
           resolvedParsedUnit,
           unitEntry.unit
@@ -581,20 +731,93 @@ function buildOwbList(parsed, armyData, magicItemIndex, armyId, armyComposition)
       continue;
     }
 
+    // For allies, build a cross-army index to find units from other armies
+    const searchIndex = owbCategory === "allies"
+      ? (allArmiesIndex || (allArmiesIndex = buildAllArmiesIndex(armyId)))
+      : unitIndex;
+
     for (const parsedUnit of units) {
-      // How many copies of this unit entry?
       const copies = parsedUnit.count || 1;
 
       for (let c = 0; c < copies; c++) {
-        const result = buildUnit(parsedUnit, unitIndex, magicItemIndex, armyComposition, warnings);
+        // For units with _modelCount (OWB format), handle copies vs strength
+        let unitToBuild = parsedUnit;
+        let numCopies = copies;
+        if (parsedUnit._modelCount && parsedUnit._modelCount > 0 && c === 0) {
+          const entry = findUnitEntry(parsedUnit.name, searchIndex);
+          if (entry) {
+            const { copies: mc, strength } = interpretDashModelCount(parsedUnit, entry.unit);
+            if (mc > 1) {
+              numCopies = mc;
+              unitToBuild = { ...parsedUnit, _modelCount: 0 };
+            } else {
+              unitToBuild = { ...parsedUnit, _modelCount: strength };
+            }
+          }
+        }
+
+        const result = buildUnit(unitToBuild, searchIndex, magicItemIndex, armyComposition, warnings);
         if (result) {
           list[owbCategory].push(result);
+        }
+
+        // If we determined more copies are needed, add them
+        if (c === 0 && numCopies > copies) {
+          for (let extra = copies; extra < numCopies; extra++) {
+            const extraResult = buildUnit(unitToBuild, searchIndex, magicItemIndex, armyComposition, warnings);
+            if (extraResult) {
+              list[owbCategory].push(extraResult);
+            }
+          }
         }
       }
     }
   }
 
   return { list, warnings };
+}
+
+/**
+ * Find a unit entry by name in a unit index.
+ */
+function findUnitEntry(name, unitIndex) {
+  const key = normalize(name);
+  let entry = unitIndex.get(key);
+  if (entry) return entry;
+  for (const [, e] of unitIndex.entries()) {
+    if (fuzzyMatch(name, e.unit.name_en) >= 0.7) return e;
+  }
+  return null;
+}
+
+/**
+ * Build an index across ALL army datasets (for finding allied units).
+ */
+function buildAllArmiesIndex(excludeArmyId) {
+  const index = new Map();
+  const armyFiles = fs.readdirSync(DATA_DIR)
+    .filter((f) => f.endsWith(".json") && f !== "magic-items.json");
+
+  for (const file of armyFiles) {
+    const aId = file.replace(".json", "");
+    if (aId === excludeArmyId) continue; // Skip the main army — already in unitIndex
+    try {
+      const data = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), "utf8"));
+      const categories = ["characters", "core", "special", "rare"];
+      for (const cat of categories) {
+        for (const unit of data[cat] || []) {
+          const key = normalize(unit.name_en);
+          // Don't overwrite — first match wins
+          if (!index.has(key)) {
+            index.set(key, { unit, category: "allies" });
+          }
+        }
+      }
+    } catch (e) {
+      // Skip unreadable files
+    }
+  }
+  return index;
 }
 
 /**
@@ -676,6 +899,18 @@ function interpretDashModelCount(parsedUnit, templateUnit) {
 
   // Otherwise count = model count in the unit
   return { copies: 1, strength: count };
+}
+
+/**
+ * Check if an armyComposition restriction allows the given composition.
+ * Can be a string, an array of strings, or an object with keys.
+ */
+function matchesArmyComposition(restriction, armyComposition) {
+  if (!restriction) return true;
+  if (typeof restriction === "string") return restriction === armyComposition;
+  if (Array.isArray(restriction)) return restriction.includes(armyComposition);
+  if (typeof restriction === "object") return armyComposition in restriction;
+  return false;
 }
 
 function mapCategoryName(catName) {
@@ -808,14 +1043,18 @@ function collectMentionedNames(parsedUnit) {
 
   // From main unit line options
   if (parsedUnit.optionsText) {
-    splitOptions(parsedUnit.optionsText).forEach((n) => names.add(normalize(n)));
+    splitOptions(parsedUnit.optionsText).forEach((n) => {
+      addNameWithBrackets(n, names);
+    });
   }
 
   // From sub-lines
   if (parsedUnit.subLines) {
     for (const sub of parsedUnit.subLines) {
       if (sub.optionsText) {
-        splitOptions(sub.optionsText).forEach((n) => names.add(normalize(n)));
+        splitOptions(sub.optionsText).forEach((n) => {
+          addNameWithBrackets(n, names);
+        });
       }
       // The sub-line name itself might be a command group name
       names.add(normalize(sub.name));
@@ -823,6 +1062,26 @@ function collectMentionedNames(parsedUnit) {
   }
 
   return names;
+}
+
+/**
+ * Add a name to the set, extracting bracket sub-options.
+ * "Wizard [Level 4 Wizard]" → adds "wizard", "level 4 wizard", "wizard level 4 wizard"
+ * "Mark of Chaos [Mark of Tzeentch]" → adds "mark of chaos", "mark of tzeentch", etc.
+ * "Standard bearer [Icon of Darkness]" → adds "standard bearer", "icon of darkness"
+ */
+function addNameWithBrackets(name, names) {
+  const bracketMatch = name.match(/^(.+?)\s*\[(.+?)\]\s*$/);
+  if (bracketMatch) {
+    const parent = bracketMatch[1].trim();
+    const child = bracketMatch[2].trim();
+    names.add(normalize(parent));
+    names.add(normalize(child));
+    // Also add the combined form for matching compound option names
+    names.add(normalize(parent + " " + child));
+  } else {
+    names.add(normalize(name));
+  }
 }
 
 /**
@@ -1000,7 +1259,7 @@ function activateOptions(unit, mentionedNames, armyComposition, warnings) {
 
   for (const opt of unit.options) {
     // Skip options restricted to different army compositions
-    if (opt.armyComposition && opt.armyComposition !== armyComposition) {
+    if (opt.armyComposition && !matchesArmyComposition(opt.armyComposition, armyComposition)) {
       continue;
     }
 
@@ -1030,21 +1289,19 @@ function activateOptions(unit, mentionedNames, armyComposition, warnings) {
         let isMatch = false;
 
         for (const mentioned of mentionedNames) {
-          // For wizard/level options, use exact level number matching
-          // to avoid "Wizard Level 3" matching "Level 2 Wizard"
-          if (
-            mentioned.includes("wizard") &&
-            mentioned.includes("level") &&
-            subName.includes("wizard") &&
-            subName.includes("level")
-          ) {
-            const mentionedLevel = mentioned.match(/level\s*(\d)/);
-            const subLevel = subName.match(/level\s*(\d)/);
-            if (mentionedLevel && subLevel && mentionedLevel[1] === subLevel[1]) {
-              isMatch = true;
-              break;
+          // For wizard level sub-options, only match on exact level numbers
+          if (subName.includes("wizard") && subName.includes("level")) {
+            // Only consider mentioned names that include both "wizard" and "level"
+            if (mentioned.includes("wizard") && mentioned.includes("level")) {
+              const mentionedLevel = mentioned.match(/level\s*(\d)/);
+              const subLevel = subName.match(/level\s*(\d)/);
+              if (mentionedLevel && subLevel && mentionedLevel[1] === subLevel[1]) {
+                isMatch = true;
+                break;
+              }
             }
-            // Don't fall through to fuzzy match for wizard levels
+            // Skip generic matches like "wizard" alone — they shouldn't
+            // activate a specific wizard level
             continue;
           }
           if (fuzzyMatch(mentioned, subName) >= 0.7) {
@@ -1245,18 +1502,47 @@ function buildCommandMagicAssignments(unit, parsedUnit, magicItemIndex) {
   const cmdNames = unit.command.map((c) => normalize(c.name_en));
 
   // Split the options text
-  const parts = splitOptions(parsedUnit.optionsText).map((p) => ({
-    text: p,
-    norm: normalize(p),
-  }));
+  const parts = splitOptions(parsedUnit.optionsText);
 
   let currentCmd = null;
 
-  for (const part of parts) {
+  for (const rawPart of parts) {
+    // Handle bracket notation: "Standard bearer [Icon of Darkness]"
+    const bracketMatch = rawPart.match(/^(.+?)\s*\[(.+?)\]\s*$/);
+    if (bracketMatch) {
+      const parentNorm = normalize(bracketMatch[1]);
+      const childNorm = normalize(bracketMatch[2]);
+
+      // Check if parent is a command name
+      for (const cn of cmdNames) {
+        if (fuzzyMatch(parentNorm, cn) >= 0.7) {
+          // Child is a magic item for this command
+          const item = magicItemIndex.get(childNorm);
+          if (item) {
+            if (!assignments.has(cn)) assignments.set(cn, []);
+            assignments.get(cn).push(item);
+          } else {
+            for (const [, mi] of magicItemIndex.entries()) {
+              if (fuzzyMatch(childNorm, mi.name_en) >= 0.9) {
+                if (!assignments.has(cn)) assignments.set(cn, []);
+                assignments.get(cn).push(mi);
+                break;
+              }
+            }
+          }
+          currentCmd = cn;
+          break;
+        }
+      }
+      continue;
+    }
+
+    const partNorm = normalize(rawPart);
+
     // Check if this part is a command name
     let isCmd = false;
     for (const cn of cmdNames) {
-      if (fuzzyMatch(part.norm, cn) >= 0.7) {
+      if (fuzzyMatch(partNorm, cn) >= 0.7) {
         currentCmd = cn;
         isCmd = true;
         break;
@@ -1264,18 +1550,18 @@ function buildCommandMagicAssignments(unit, parsedUnit, magicItemIndex) {
     }
     if (isCmd) continue;
 
-    // Check if this part is a magic item
+    // Check if this part is a magic item following a command name
     if (currentCmd) {
-      const item = magicItemIndex.get(part.norm);
+      const item = magicItemIndex.get(partNorm);
       if (item) {
         if (!assignments.has(currentCmd)) {
           assignments.set(currentCmd, []);
         }
         assignments.get(currentCmd).push(item);
       } else {
-        // Try fuzzy
+        // Try fuzzy (high threshold to avoid false positives)
         for (const [, mi] of magicItemIndex.entries()) {
-          if (fuzzyMatch(part.norm, mi.name_en) >= 0.8) {
+          if (fuzzyMatch(partNorm, mi.name_en) >= 0.9) {
             if (!assignments.has(currentCmd)) {
               assignments.set(currentCmd, []);
             }
@@ -1306,9 +1592,21 @@ function assignMagicItems(unit, mentionedNames, magicItemIndex, warnings) {
     }
   }
 
+  // Common game terms that should never match magic items
+  const nonItemNames = new Set([
+    "wizard", "general", "champion", "musician", "standard bearer",
+    "hand weapon", "hand weapons", "heavy armour", "light armour",
+    "full plate armour", "shields", "shield", "barding",
+    "on foot", "battle magic", "mark of chaos", "formation",
+    "ambushers", "drilled", "stubborn", "vanguard", "detachment",
+    "skirmishers", "chaotic cult", "none",
+  ]);
+
   // Build a list of magic items that are mentioned
   const foundItems = [];
   for (const mentioned of mentionedNames) {
+    // Skip common game terms
+    if (nonItemNames.has(mentioned)) continue;
     // Skip if already assigned to a command position
     const item = magicItemIndex.get(mentioned);
     if (item) {
@@ -1316,9 +1614,9 @@ function assignMagicItems(unit, mentionedNames, magicItemIndex, warnings) {
         foundItems.push(item);
       }
     } else {
-      // Try fuzzy match
+      // Try fuzzy match — require high threshold to avoid false positives
       for (const [key, mi] of magicItemIndex.entries()) {
-        if (fuzzyMatch(mentioned, mi.name_en) >= 0.8) {
+        if (fuzzyMatch(mentioned, mi.name_en) >= 0.9) {
           if (!commandItemNames.has(normalize(mi.name_en))) {
             foundItems.push(mi);
           }
