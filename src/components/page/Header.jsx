@@ -18,6 +18,7 @@ import {
 import { updateSetting } from "../../state/settings";
 import { updateLogin } from "../../state/login";
 
+import owrLogoWhite from "../../assets/owr-logo-white.svg";
 import "./Header.css";
 
 export const Header = ({
@@ -64,31 +65,10 @@ export const Header = ({
     },
     {
       name: intl.formatMessage({
-        id: "footer.help",
-      }),
-      to: "/help",
-      icon: "help",
-    },
-    {
-      name: intl.formatMessage({
         id: "footer.settings",
       }),
       to: "/settings",
       icon: "settings",
-    },
-    {
-      name: intl.formatMessage({
-        id: "footer.changelog",
-      }),
-      to: "/changelog",
-      icon: "news",
-    },
-    {
-      name: intl.formatMessage({
-        id: "footer.custom-datasets",
-      }),
-      to: "/custom-datasets",
-      icon: "datasets",
     },
   ];
   const navigation = hasMainNavigation ? navigationLinks : moreButton;
@@ -211,9 +191,14 @@ export const Header = ({
         <div className="header__text">
           {headline && (
             <>
-              {headline === "Old World Builder" ? (
+              {headline === "Battle Builder" ? (
                 <h1 className="header__name">
-                  <Link className="header__name-link" to="/">
+                  <Link className="header__name-link header__brand" to="/">
+                    <img
+                      src={owrLogoWhite}
+                      alt="OWR"
+                      className="header__brand-logo"
+                    />
                     {headline}
                   </Link>
                   {!isSection && (

@@ -38,6 +38,9 @@
   --color-success: #92b06a;
 }
 
+@import url("https://fonts.googleapis.com/css2?family=Gideon+Roman&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap");
+
 * {
   -webkit-tap-highlight-color: transparent;
   border-color: transparent;

@@ -1,0 +1,266 @@
+/**
+ * OWR Theme Overrides for Battle Builder
+ *
+ * Clean light theme with dark header and gold accents
+ * matching the Old World Rankings brand.
+ *
+ * OWR Color Palette:
+ * - Gold: #FFD700 (dark: #DAA520)
+ * - Black: #1C1C1C (header/accents)
+ * - Background: #F5F5F5 (light grey)
+ * - Cards: #FFFFFF (white)
+ */
+
+:root {
+  /* Typography - Montserrat replaces Gideon Roman */
+  --font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+
+  /* Typography - dark text on light backgrounds */
+  --color-font: #2C2C2C;
+  --color-headline: #1C1C1C;
+  --color-font-medium: #999;
+  --color-font-light: #FFFFFF;
+
+  /* Backgrounds - clean light theme */
+  --color-background: #F5F5F5;
+  --color-list: #E8E8E8;
+  --color-white: #FFFFFF;
+
+  /* Primary action - Warhammer Gold */
+  --color-button: #DAA520;
+
+  /* Headers - dark to contrast with light body */
+  --color-header: #1C1C1C;
+  --color-header-menu: #2A2A2A;
+
+  /* Secondary actions */
+  --color-button-secondary: #3A3A3A;
+
+  /* Status colors */
+  --color-error: #8B0000;
+  --color-success: #4CAF50;
+}
+
+/* Kill the sandy parchment gradient */
+body {
+  background: #F5F5F5 !important;
+}
+
+/* Override Gideon Roman heading font */
+h1 {
+  font-family: var(--font-family);
+  color: var(--color-headline);
+}
+
+/* Dark primary buttons (OWR convention) */
+.button--primary,
+.button--cta {
+  background-color: #1C1C1C !important;
+  color: #FFFFFF !important;
+}
+
+.button--primary:hover,
+.button--cta:hover {
+  background-color: #2A2A2A !important;
+}
+
+/* Header styling - dark header with gold accent */
+header,
+.header {
+  background-color: #1C1C1C !important;
+  border-bottom: 1px solid rgba(218, 165, 32, 0.3);
+}
+
+/* List items - white cards on grey background */
+.list__item {
+  background-color: #FFFFFF;
+  border: 1px solid #E0E0E0;
+}
+
+.list__item:hover {
+  border-color: #DAA520;
+}
+
+/* Links — black, underlined, slightly heavier weight */
+a {
+  color: #1C1C1C;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+a:hover {
+  color: #2A2A2A;
+}
+
+/* Input fields — shadcn-style: white bg, dark border, rounded */
+input,
+select,
+textarea {
+  background-color: #FFFFFF !important;
+  border: 1px solid #1C1C1C !important;
+  border-radius: 6px !important;
+  color: #2C2C2C !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #1C1C1C !important;
+  outline-color: #1C1C1C !important;
+}
+
+/* Native checkboxes & radios — black accent instead of blue */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: #1C1C1C !important;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F5F5F5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CCCCCC;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #AAAAAA;
+}
+
+/* Dialog/Modal styling — off-white, kill sandy gradient */
+.dialog,
+.modal {
+  background: #F5F5F5 !important;
+  border: 1px solid #E0E0E0;
+}
+
+/* Expandable sections */
+.expandable__header {
+  background-color: #FFFFFF;
+  border-color: #E0E0E0;
+}
+
+/* Stats/unit cards */
+.stats {
+  background-color: #FFFFFF;
+  border: 1px solid #E0E0E0;
+}
+
+/* Number input styling */
+.number-input input {
+  background-color: #FFFFFF !important;
+}
+
+/* Breadcrumbs */
+.breadcrumbs a {
+  color: #1C1C1C;
+}
+
+/* Page content area */
+.page {
+  background-color: #F5F5F5;
+}
+
+/* Home page army list cards */
+.home .list__item {
+  background: #FFFFFF;
+}
+
+/* Focus ring — black instead of gold */
+*:focus-visible {
+  outline: 2px solid #1C1C1C;
+  outline-offset: 2px;
+}
+
+/* Selection color */
+::selection {
+  background-color: rgba(28, 28, 28, 0.2);
+  color: #1C1C1C;
+}
+
+/* Section dividers — neutral grey instead of sandy gradient */
+.editor__header {
+  background: #D5D5D5 !important;
+}
+
+/* Folders — primary black */
+.home__folder {
+  background: #1C1C1C !important;
+}
+
+.home__folder .home__headline--folder,
+.home__folder .home__folder-name,
+.home__folder .icon {
+  color: #FFFFFF !important;
+}
+
+.home__folder .button--text .icon {
+  color: #FFFFFF !important;
+}
+
+.home__folder .list__inner:hover::before,
+.home__folder .list__inner:focus::before,
+.home__folder .list__inner:active::before {
+  background: #2A2A2A !important;
+}
+
+/* Header links should stay light, no underline */
+.header a,
+.header__name-link,
+.header__brand {
+  color: #FFFFFF !important;
+  text-decoration: none !important;
+  font-weight: inherit !important;
+}
+
+/* Webview mode — left-align brand (no back button) */
+.header--webview .header__text {
+  text-align: left !important;
+  flex-grow: 1 !important;
+}
+
+.header--webview .header__name {
+  justify-content: flex-start !important;
+  padding-left: 0.75rem;
+}
+
+/* Header brand — logo + title */
+.header__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.header__brand-logo {
+  height: 28px;
+  width: auto;
+}
+
+/* Error/warning — Warhammer red (overrides App.css --color-error) */
+.error-message,
+.editor__error {
+  color: #8B0000 !important;
+}
+
+.icon--red {
+  stroke: #8B0000 !important;
+  fill: #8B0000 !important;
+}
+
+/* Hide footer nav links — covered by OWR website/Rails app */
+.footer__navigation {
+  display: none !important;
+}
+
+/* Dividers */
+hr {
+  background-color: #E0E0E0;
+}
