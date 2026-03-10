@@ -7,7 +7,7 @@ const abortFetch = () => {
 };
 export const fetcher = ({
   url,
-  baseUrl = "/",
+  baseUrl = import.meta.env.BASE_URL || "/",
   appendJson = true,
   version,
   onSuccess,

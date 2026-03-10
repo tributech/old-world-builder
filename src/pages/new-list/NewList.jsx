@@ -14,6 +14,7 @@ import { getRandomId } from "../../utils/id";
 import { useLanguage } from "../../utils/useLanguage";
 import { setLists } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
+import { setItem } from "../../utils/storage";
 import { RulesIndex, RuleWithIcon } from "../../components/rules-index";
 
 import { nameMap } from "../magic";
@@ -103,7 +104,7 @@ export const NewList = ({ isMobile }) => {
     const newLists = [newList, ...lists];
     const newSettings = { ...settings, lastChanged: new Date().toString() };
 
-    localStorage.setItem("owb.lists", JSON.stringify(newLists));
+    setItem("owb.lists", JSON.stringify(newLists));
     localStorage.setItem("owb.settings", JSON.stringify(newSettings));
     dispatch(setLists(newLists));
     dispatch(updateSetting({ lastChanged: newSettings.lastChanged }));
