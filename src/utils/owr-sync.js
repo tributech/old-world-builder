@@ -30,6 +30,7 @@ let isSyncing = false;
 let lastSyncedAt = null;
 let hasPendingChanges = false;
 let authError = false;
+let cloudSyncEntitled = true; // Default true — backwards compatible with prod that doesn't send the field
 let refreshPromise = null;
 let syncStateListeners = [];
 let pendingSyncLists = null;
@@ -44,7 +45,7 @@ let serverSyncedAt = null; // Server's synced_at ISO8601 string for delta short-
 export const subscribeSyncState = (listener) => {
   syncStateListeners.push(listener);
   // Immediately notify with current state
-  listener({ isSyncing, lastSyncedAt, isAuthenticated, hasPendingChanges, authError });
+  listener({ isSyncing, lastSyncedAt, isAuthenticated, hasPendingChanges, authError, cloudSyncEntitled });
   return () => {
     syncStateListeners = syncStateListeners.filter((l) => l !== listener);
   };
@@ -54,7 +55,7 @@ export const subscribeSyncState = (listener) => {
  * Notify all listeners of sync state change
  */
 const notifySyncState = () => {
-  const state = { isSyncing, lastSyncedAt, isAuthenticated, hasPendingChanges, authError };
+  const state = { isSyncing, lastSyncedAt, isAuthenticated, hasPendingChanges, authError, cloudSyncEntitled };
   syncStateListeners.forEach((listener) => listener(state));
 };
 
@@ -67,6 +68,7 @@ export const getSyncState = () => ({
   isAuthenticated,
   hasPendingChanges,
   authError,
+  cloudSyncEntitled,
 });
 
 const startPeriodicSync = () => {
@@ -271,6 +273,22 @@ export const checkAuth = async () => {
     const res = await fetch(getSyncEndpoint(), getFetchOptions());
     isAuthenticated = res.ok;
     console.log("   API response:", res.status, "- authenticated:", isAuthenticated);
+
+    // Capture entitlement from response (field absent on old prod = stay entitled)
+    if (res.ok) {
+      try {
+        const data = await res.json();
+        if (data.cloud_sync_entitled !== undefined) {
+          cloudSyncEntitled = !!data.cloud_sync_entitled;
+        }
+        // Cache the lists response to avoid a duplicate GET in pullFromOWR
+        checkAuth._cachedData = data;
+      } catch (_) {
+        // JSON parse failure is non-fatal for auth check
+      }
+    }
+
+    notifySyncState();
     return isAuthenticated;
   } catch (e) {
     console.error("   ❌ Auth check failed:", e);
@@ -305,6 +323,10 @@ export const pullFromOWR = async (localLists) => {
 
   const authenticated = await checkAuth();
   console.log("   Auth check result:", authenticated);
+  if (!cloudSyncEntitled) {
+    console.log("   ⏭️ Not entitled to cloud sync, using local lists only");
+    return localLists;
+  }
   if (!authenticated) {
     console.warn("   ❌ Not authenticated, returning local lists only");
     return localLists;
@@ -315,27 +337,32 @@ export const pullFromOWR = async (localLists) => {
   notifySyncState();
 
   try {
-    const endpoint = getSyncEndpoint();
-    console.log("   📡 Fetching from:", endpoint);
-    console.log("   Fetch options:", JSON.stringify(getFetchOptions()));
+    // Use cached data from checkAuth if available (avoids duplicate GET)
+    let data = checkAuth._cachedData;
+    checkAuth._cachedData = null;
 
-    // Send synced_at for short-circuit when we have a cached timestamp
-    const syncPath = serverSyncedAt
-      ? `${SYNC_PATH_WEB}?synced_at=${encodeURIComponent(serverSyncedAt)}`
-      : SYNC_PATH_WEB;
+    if (!data) {
+      console.log("   📡 Fetching sync...");
+      // Send synced_at for short-circuit when we have a cached timestamp
+      const syncPath = serverSyncedAt
+        ? `${SYNC_PATH_WEB}?synced_at=${encodeURIComponent(serverSyncedAt)}`
+        : SYNC_PATH_WEB;
 
-    const res = await owrApiFetch(syncPath);
-    console.log("   Response status:", res.status);
-    console.log("   Response ok:", res.ok);
+      const res = await owrApiFetch(syncPath);
 
-    if (!res.ok) {
-      const errorText = await res.text().catch(() => "Could not read response");
-      console.warn("   ⚠️ Response not OK (", res.status, ")");
-      console.warn("   Error body:", errorText);
-      return localLists;
+      if (!res.ok) {
+        console.warn("   ⚠️ Response not OK (", res.status, ")");
+        return localLists;
+      }
+
+      data = await res.json();
     }
 
-    const data = await res.json();
+    // Update entitlement from response
+    if (data.cloud_sync_entitled !== undefined) {
+      cloudSyncEntitled = !!data.cloud_sync_entitled;
+      notifySyncState();
+    }
 
     // Short-circuit: nothing changed on server since last sync
     if (data.changed === false) {
@@ -385,6 +412,7 @@ export const pullFromOWR = async (localLists) => {
  * @param {Array} lists - Lists to sync
  */
 export const pushToOWR = (lists) => {
+  if (!cloudSyncEntitled) return; // Pro-only — skip silently
   startPeriodicSync();
   if (syncTimeout) clearTimeout(syncTimeout);
   hasPendingChanges = true;
