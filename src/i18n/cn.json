@@ -126,8 +126,6 @@
   "misc.error.battleMarchMultiple0XUnits": "你的军表中只能包含一个'每1000分0-X个'的单位",
   "misc.error.multipleHierophants": "Only one Hierophant allowed",
   "misc.error.hierophantLevel": "Your Hierophant doesn't have the highest wizard level of your Liche Priests",
-  "pwa.button": "安装app",
-  "pwa.prompt": "旧世界写表器可以作为app被安装到你的设备上。现在安装？",
   "editor.add": "添加",
   "editor.lords": "领主",
   "editor.heroes": "英雄",

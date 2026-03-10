@@ -6,7 +6,6 @@ import { HelmetProvider } from "react-helmet-async";
 import * as Sentry from "@sentry/react";
 
 import reportWebVitals from "./reportWebVitals";
-// import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
 import { App } from "./App";
 import store from "./store";
 
@@ -114,10 +113,4 @@ ReactDOM.render(
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
 
-// serviceWorkerRegistration.register();
-navigator?.serviceWorker &&
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
-    }
-  });
+// PWA service worker disabled - OWR uses native mobile apps instead

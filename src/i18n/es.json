@@ -126,8 +126,6 @@
   "misc.error.battleMarchMultiple0XUnits": "You can only have a single '0-X per 1000 points' unit in your list",
   "misc.error.multipleHierophants": "Only one Hierophant allowed",
   "misc.error.hierophantLevel": "Your Hierophant doesn't have the highest wizard level of your Liche Priests",
-  "pwa.button": "Install app",
-  "pwa.prompt": "Old World Builder can be installed as an app on your device. Install now?",
   "editor.add": "Añadir",
   "editor.lords": "Comandantes",
   "editor.heroes": "Héroes",
