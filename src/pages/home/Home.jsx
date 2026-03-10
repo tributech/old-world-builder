@@ -182,6 +182,37 @@ export const Home = ({ isMobile }) => {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [activeDeleteOption, setActiveDeleteOption] = useState("delete");
+  const [tournamentMap, setTournamentMap] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchTournaments = async () => {
+      const authed = await checkAuth();
+      if (cancelled || !authed) return;
+      try {
+        const res = await owrApiFetch("/api/builder/tournaments");
+        if (res.ok) {
+          const data = await res.json();
+          const map = {};
+          (data.tournaments || []).forEach((t) => {
+            if (t.submitted_list_id) {
+              map[t.submitted_list_id] = {
+                approved: t.list_approved,
+                name: t.name,
+                url: t.friendly_url,
+              };
+            }
+          });
+          if (!cancelled) setTournamentMap(map);
+        }
+      } catch (e) {
+        console.warn("Failed to fetch tournament status:", e);
+      }
+    };
+    fetchTournaments();
+    return () => { cancelled = true; };
+  }, []);
+
   const resetState = () => {
     dispatch(setArmy(null));
     dispatch(setItems(null));
@@ -779,6 +810,22 @@ export const Home = ({ isMobile }) => {
                       src={armyIconMap[army] || owb}
                       alt=""
                     />
+                    {tournamentMap[id] && (
+                      <a
+                        href={tournamentMap[id].url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`home__tournament-icon ${
+                          tournamentMap[id].approved
+                            ? "home__tournament-icon--approved"
+                            : "home__tournament-icon--pending"
+                        }`}
+                        title={tournamentMap[id].name}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        🏟️
+                      </a>
+                    )}
                   </div>
                 </ListItem>
               ),
