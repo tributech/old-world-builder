@@ -8,6 +8,8 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { Button } from "../../components/button";
 import { Icon } from "../../components/icon";
 import { Dialog } from "../../components/dialog";
+import { SyncButton } from "../../components/sync-button";
+import { isMobileAppContext } from "../../utils/owr-sync";
 import { updateLocalList } from "../../utils/list";
 import {
   login,
@@ -34,11 +36,13 @@ export const Header = ({
   hasMainNavigation,
   navigationIcon,
   hasHomeButton,
+  hasOWRButton,
   filters,
 }) => {
   const intl = useIntl();
   const location = useLocation();
   const [showMenu, setShowMenu] = useState(false);
+  const isMobile = isMobileAppContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const dispatch = useDispatch();
   const { listId, unitId } = useParams();
@@ -48,6 +52,16 @@ export const Header = ({
     state.lists.find(({ id }) => listId === id),
   );
   const settings = useSelector((state) => state.settings);
+  const handleBackToOWR = () => {
+    if (window.opener && !window.opener.closed) {
+      window.open('', 'owr-main');
+    } else {
+      window.location.href = "/";
+    }
+  };
+  const handleLogout = () => {
+    window.location.href = "owr://logout";
+  };
   const Component = isSection ? "section" : "header";
   const hasLocalChanges =
     new Date(settings.lastChanged).getTime() >
@@ -70,6 +84,12 @@ export const Header = ({
       to: "/settings",
       icon: "settings",
     },
+    // Show logout option only in mobile app context
+    ...(isMobileAppContext() ? [{
+      name: "Logout",
+      callback: handleLogout,
+      icon: "close",
+    }] : []),
   ];
   const navigation = hasMainNavigation ? navigationLinks : moreButton;
   const logout = () => {
@@ -132,6 +152,7 @@ export const Header = ({
       <Component
         className={classNames(
           isSection ? "column-header" : "header",
+          isMobile && "header--webview",
           className,
         )}
       >
@@ -150,7 +171,16 @@ export const Header = ({
           />
         ) : (
           <>
-            {hasHomeButton && (
+            {hasOWRButton && !isMobile && (
+              <Button
+                type="text"
+                onClick={handleBackToOWR}
+                label="Back to OWR"
+                color="light"
+                icon="back"
+              />
+            )}
+            {hasHomeButton && !hasOWRButton && (
               <Button
                 type="text"
                 to="/"
@@ -160,7 +190,7 @@ export const Header = ({
                 showLabelRight
               />
             )}
-            {!hasHomeButton && !isPreview && (
+            {!hasHomeButton && !hasOWRButton && !isPreview && (
               <Button
                 type="text"
                 onClick={() => {
@@ -292,6 +322,10 @@ export const Header = ({
             </p>
           )}
         </div>
+        {/* Show sync button on list-related screens (not info pages like About/Help) */}
+        {((hasMainNavigation && !hasHomeButton) || (to && !isSection)) && (
+          <SyncButton />
+        )}
         {navigation ? (
           <Button
             type="text"
@@ -454,5 +488,6 @@ Header.propTypes = {
   hasPointsError: PropTypes.bool,
   hasMainNavigation: PropTypes.bool,
   hasHomeButton: PropTypes.bool,
+  hasOWRButton: PropTypes.bool,
   navigationIcon: PropTypes.string,
 };
