@@ -145,7 +145,7 @@ export const App = () => {
           <Route path="/game-view/:listId">{<GameView />}</Route>
           <Route path="/battletavern">{<BattleTavern />}</Route>
           <Route path="/">
-            <Header headline="Old World Builder" hasMainNavigation />
+            <Header headline="Battle Builder" hasMainNavigation />
             <Main isDesktop>
               <section className="column">
                 <Home />

@@ -133,7 +133,7 @@ export const BattleTavern = () => {
     <>
       <Helmet>
         <title>
-          {`Old World Builder | ${intl.formatMessage({
+          {`Battle Builder | ${intl.formatMessage({
             id: "battleTavern.title",
           })}`}
         </title>
@@ -144,7 +144,7 @@ export const BattleTavern = () => {
         />
       </Helmet>
 
-      <Header headline="Old World Builder" hasMainNavigation hasHomeButton />
+      <Header headline="Battle Builder" hasMainNavigation hasHomeButton />
 
       <Main compact>
         <h2 className="page-headline">

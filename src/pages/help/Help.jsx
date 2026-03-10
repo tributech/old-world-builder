@@ -17,12 +17,11 @@ export const Help = () => {
     <>
       <Helmet>
         <title>
-          {`Old World Builder | ${intl.formatMessage({ id: "footer.help" })}`}
+          {`Battle Builder | ${intl.formatMessage({ id: "footer.help" })}`}
         </title>
-        <link rel="canonical" href="https://old-world-builder.com/help" />
       </Helmet>
 
-      <Header headline="Old World Builder" hasMainNavigation hasHomeButton />
+      <Header headline="Battle Builder" hasMainNavigation hasHomeButton />
 
       <Main compact>
         <h2 className="page-headline">
