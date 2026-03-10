@@ -11,6 +11,7 @@ import { useLanguage } from "../../utils/useLanguage";
 import { getFile } from "../../utils/file";
 
 import { getListAsText } from "./get-list-as-text";
+import { TournamentSubmit } from "./TournamentSubmit";
 import "./Export.css";
 
 export const Export = ({ isMobile }) => {
@@ -358,6 +359,8 @@ export const Export = ({ isMobile }) => {
             <FormattedMessage id="export.error" />
           </p>
         )}
+
+        <TournamentSubmit list={list} />
       </MainComponent>
     </>
   );
