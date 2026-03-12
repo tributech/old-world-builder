@@ -13,9 +13,9 @@ This is a fork of [nthiebes/old-world-builder](https://github.com/nthiebes/old-w
 ## Common Commands
 
 ```bash
-yarn start          # Dev server (CRA, hot reload)
+yarn dev            # Dev server (Vite, hot reload)
 yarn build          # Production build
-yarn test           # Jest in watch mode
+yarn test           # Vitest
 yarn deploy         # Build + deploy to GitHub Pages
 ```
 
@@ -35,7 +35,7 @@ The `owr_latest` tag **must always be updated** after any push to `main` (not ju
 
 ## Architecture
 
-**Stack**: React 17 + Redux Toolkit + React Router v5 + react-intl (i18n) + Create React App
+**Stack**: React 17 + Redux Toolkit + React Router v5 + react-intl (i18n) + Vite
 
 ### Key directories
 
@@ -97,10 +97,10 @@ Each army JSON has categories: `characters`, `core`, `special`, `rare`, `mercena
 
 ### OWR Theme / "Battle Builder" Rebrand
 
-Our fork rebrands the app as "Battle Builder" with a clean OWR design system. All visual overrides live in `public/owr-overrides.css` — **no upstream CSS files are modified**, keeping rebases clean. The override file is loaded via a `<link>` tag in `public/index.html` before the React bundle.
+Our fork rebrands the app as "Battle Builder" with a clean OWR design system. All visual overrides live in `src/owr-overrides.css`, imported in `App.jsx` after `App.css` so it takes precedence. Vite bundles it into the hashed `index-XXXXXXXX.css` for automatic cache-busting. **No upstream CSS files are modified**, keeping rebases clean.
 
 Key points:
-- CSS custom property overrides in `:root` can be outprioritied by `src/App.css` (CRA bundle loads later) — use direct class selectors with `!important` when needed
+- CSS custom property overrides in `:root` can be outprioritied by `src/App.css` — use direct class selectors with `!important` when needed
 - Header includes OWR logo (`src/assets/owr-logo-white.svg`) next to "Battle Builder" text
 - Footer nav links are hidden (covered by OWR website/Rails app)
 - Full details in `docs/theming.md`

@@ -3,8 +3,8 @@ import ReactDOM from "react-dom";
 import { Provider as ReduxProvider } from "react-redux";
 import { IntlProvider } from "react-intl";
 import { HelmetProvider } from "react-helmet-async";
-import * as Sentry from "@sentry/react";
 
+import { getItem } from "./utils/storage";
 import reportWebVitals from "./reportWebVitals";
 import { App } from "./App";
 import store from "./store";
@@ -16,16 +16,6 @@ import French from "./i18n/fr.json";
 import Italian from "./i18n/it.json";
 import Polish from "./i18n/pl.json";
 import Chinese from "./i18n/cn.json";
-
-// Sentry error tracking
-if (import.meta.env.MODE !== "development") {
-  Sentry.init({
-    dsn: "https://3947feb62e2f5348c1759e8d4d9ed084@o314295.ingest.sentry.io/4506569636642816",
-    integrations: [],
-    environment: import.meta.env.MODE,
-    release: `owb@${import.meta.env.VITE_VERSION}`,
-  });
-}
 
 const metaDescription = {
   de: "Armeebauer für Warhammer: The Old World.",
@@ -83,7 +73,7 @@ const darkColorScheme = window.matchMedia(
   "(prefers-color-scheme: dark)",
 ).matches;
 const localStorageColorScheme = JSON.parse(
-  localStorage.getItem("owb.settings"),
+  getItem("owb.settings"),
 )?.colorScheme;
 let colorScheme;
 

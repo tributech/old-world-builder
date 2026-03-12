@@ -11,6 +11,8 @@ import { Dialog } from "../../components/dialog";
 import { SyncButton } from "../../components/sync-button";
 import { isMobileAppContext } from "../../utils/owr-sync";
 import { updateLocalList } from "../../utils/list";
+import { hasMeaningfulListChange } from "../../utils/owr-list";
+import { getItem } from "../../utils/storage";
 import {
   login,
   syncLists,
@@ -104,14 +106,11 @@ export const Header = ({
   }, [location.pathname]);
 
   useEffect(() => {
-    const updatedList = JSON.stringify(list);
-    const localList = JSON.stringify(
-      JSON.parse(localStorage.getItem("owb.lists") || "[]").find(
-        (localList) => localList.id === listId,
-      ),
+    const localList = JSON.parse(getItem("owb.lists") || "[]").find(
+      (localList) => localList.id === listId,
     );
 
-    if (list && updatedList !== localList) {
+    if (list && hasMeaningfulListChange(localList, list)) {
       updateLocalList(list);
 
       const newSettings = { ...settings, lastChanged: new Date().toString() };

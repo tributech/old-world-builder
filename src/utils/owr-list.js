@@ -2,15 +2,15 @@ import { pushToOWR } from "./owr-sync";
 import { removeFromLocalList, updateListsFolder } from "./list";
 import { getItem, setItem } from "./storage";
 
-const stripSyncOnlyFields = (list) => {
+const stripMetadataFields = (list) => {
   if (!list) return list;
-  const { updated_at, _broadcast_until, ...rest } = list;
+  const { updated_at, _broadcast_until, open, ...rest } = list;
   return rest;
 };
 
-const hasMeaningfulListChange = (currentList, nextList) => {
-  const currentSerialized = JSON.stringify(stripSyncOnlyFields(currentList));
-  const nextSerialized = JSON.stringify(stripSyncOnlyFields(nextList));
+export const hasMeaningfulListChange = (currentList, nextList) => {
+  const currentSerialized = JSON.stringify(stripMetadataFields(currentList));
+  const nextSerialized = JSON.stringify(stripMetadataFields(nextList));
   return currentSerialized !== nextSerialized;
 };
 

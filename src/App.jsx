@@ -48,6 +48,7 @@ import {
 } from "./utils/dropbox-auth-and-synchronization";
 
 import "./App.css";
+import "./owr-overrides.css";
 
 let intervalId = null;
 let isWindowActive = true;

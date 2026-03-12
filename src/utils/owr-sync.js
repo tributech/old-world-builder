@@ -249,6 +249,23 @@ const owrFetch = async (url, options = {}) => {
 };
 
 /**
+ * Make an authenticated API call to OWR.
+ * Resolves web-style paths to the correct endpoint for the current auth mode.
+ * @param {string} path - Web API path (e.g., '/api/builder/tournaments')
+ * @param {Object} options - fetch options
+ * @returns {Promise<Response>}
+ */
+export const owrApiFetch = async (path, options = {}) => {
+  const baseUrl = isJwtMode()
+    ? window.__OWR_CONFIG__?.apiBaseUrl || ""
+    : "";
+  const resolvedPath = isJwtMode()
+    ? path.replace("/api/builder/", "/api/v1/builder/")
+    : path;
+  return owrFetch(`${baseUrl}${resolvedPath}`, options);
+};
+
+/**
  * Check if user is logged into OWR
  * Caches result to avoid repeated requests
  */

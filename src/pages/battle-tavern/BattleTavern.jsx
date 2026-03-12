@@ -9,6 +9,8 @@ import { Header, Main } from "../../components/page";
 import { Button } from "../../components/button";
 import { Icon } from "../../components/icon";
 
+import { getItem } from "../../utils/storage";
+
 import "./BattleTavern.css";
 
 const DEFAULT_PORT = 47823;
@@ -21,7 +23,7 @@ const getPort = () => {
 };
 
 const getListCount = () => {
-  const raw = localStorage.getItem("owb.lists");
+  const raw = getItem("owb.lists");
   if (!raw) return 0;
   try {
     const lists = JSON.parse(raw);
