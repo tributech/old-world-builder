@@ -51,6 +51,13 @@ body {
 h1 {
   font-family: var(--font-family);
   color: var(--color-headline);
+  font-size: 1.2rem;
+}
+
+h2 {
+  font-family: var(--font-family);
+  color: var(--color-headline);
+  font-size: 1rem;
 }
 
 /* Dark primary buttons (OWR convention) */
@@ -82,10 +89,10 @@ header,
   border-color: #DAA520;
 }
 
-/* Links — black, underlined, slightly heavier weight */
+/* Links — black, no underline */
 a {
   color: #1C1C1C;
-  text-decoration: underline;
+  text-decoration: none;
   font-weight: 500;
 }
 
@@ -263,4 +270,116 @@ input[type="radio"] {
 /* Dividers */
 hr {
   background-color: #E0E0E0;
+}
+
+/* Dark mode overrides */
+:root.dark {
+  /* Typography - light text on dark backgrounds */
+  --color-font: #E8E8E8;
+  --color-headline: #FFFFFF;
+  --color-font-medium: #AAAAAA;
+  --color-font-light: #CCCCCC;
+
+  /* Backgrounds - dark theme */
+  --color-background: #2B2B2B;
+  --color-list: #1A1A1A;
+  --color-white: #111111;
+
+  /* Primary action - Warhammer Gold (lighter for contrast on dark) */
+  --color-button: #FFD700;
+
+  /* Headers */
+  --color-header: #1C1C1C;
+  --color-header-menu: #000000;
+
+  /* Secondary actions */
+  --color-button-secondary: #444444;
+
+  /* Status colors */
+  --color-error: #FF6B6B;
+  --color-success: #66BB6A;
+}
+
+:root.dark body {
+  background: #2B2B2B !important;
+}
+
+:root.dark .page {
+  background-color: #2B2B2B !important;
+}
+
+:root.dark .list__item {
+  background-color: #1A1A1A !important;
+  border: 1px solid #333333;
+  color: #E8E8E8;
+}
+
+:root.dark .list__item:hover {
+  border-color: #FFD700;
+}
+
+:root.dark input,
+:root.dark select,
+:root.dark textarea {
+  background-color: #1A1A1A !important;
+  border: 1px solid #444444 !important;
+  color: #E8E8E8 !important;
+}
+
+:root.dark .dialog,
+:root.dark .modal {
+  background: #2B2B2B !important;
+  border: 1px solid #444444;
+}
+
+:root.dark .expandable__header {
+  background-color: #1A1A1A;
+  border-color: #333333;
+  color: #E8E8E8;
+}
+
+:root.dark .stats {
+  background-color: #1A1A1A;
+  border: 1px solid #333333;
+}
+
+:root.dark .editor__header {
+  background: #1A1A1A !important;
+  color: #FFFFFF !important;
+}
+
+:root.dark hr {
+  background-color: #333333;
+}
+
+:root.dark a {
+  color: #FFD700;
+  text-decoration: none;
+}
+
+:root.dark a:hover {
+  color: #FFED4E;
+}
+
+:root.dark .editor__error,
+:root.dark .error-message {
+  color: #FF6B6B !important;
+}
+
+:root.dark ::-webkit-scrollbar-track {
+  background: #2B2B2B;
+}
+
+:root.dark ::-webkit-scrollbar-thumb {
+  background: #444444;
+}
+
+:root.dark ::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
+
+/* Header buttons in dark mode */
+:root.dark .header button,
+:root.dark .header .button--text {
+  color: #FFFFFF !important;
 }
