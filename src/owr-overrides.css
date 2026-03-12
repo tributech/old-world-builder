@@ -24,7 +24,9 @@
 
   /* Backgrounds - clean light theme */
   --color-background: #F5F5F5;
+  --color-background-lighter: #F5F5F5;
   --color-list: #E8E8E8;
+  --color-list-lighter: #E8E8E8;
   --color-white: #FFFFFF;
 
   /* Primary action - Warhammer Gold */
@@ -147,6 +149,11 @@ input[type="radio"] {
 .modal {
   background: #F5F5F5 !important;
   border: 1px solid #E0E0E0;
+}
+
+/* Unit detachments header — kill sandy gradient */
+.unit__detachments-header {
+  background: #D5D5D5 !important;
 }
 
 /* Expandable sections */
@@ -282,7 +289,9 @@ hr {
 
   /* Backgrounds - dark theme */
   --color-background: #2B2B2B;
+  --color-background-lighter: #2B2B2B;
   --color-list: #1A1A1A;
+  --color-list-lighter: #1A1A1A;
   --color-white: #111111;
 
   /* Primary action - Warhammer Gold (lighter for contrast on dark) */
@@ -343,7 +352,8 @@ hr {
   border: 1px solid #333333;
 }
 
-:root.dark .editor__header {
+:root.dark .editor__header,
+:root.dark .unit__detachments-header {
   background: #1A1A1A !important;
   color: #FFFFFF !important;
 }
