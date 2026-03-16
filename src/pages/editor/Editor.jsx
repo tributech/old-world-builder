@@ -6,6 +6,13 @@ import classNames from "classnames";
 import { Helmet } from "react-helmet-async";
 
 import { getMaxPercentData, getMinPercentData } from "../../utils/rules";
+import { getCompPackById } from "../../utils/comp-packs";
+import {
+  getCompPackMaxPercentData,
+  getCompPackMinPercentData,
+  getEffectivePoints,
+  loadArmyRules,
+} from "../../utils/comp-pack-validation";
 import { Button } from "../../components/button";
 import { Icon } from "../../components/icon";
 import { OrderableList } from "../../components/list";
@@ -65,6 +72,15 @@ export const Editor = ({ isMobile }) => {
     return () => window.removeEventListener("scroll", onScroll);
   }, [location.pathname]);
 
+  const [armyRulesReady, setArmyRulesReady] = useState(false);
+
+  // Load army rules for mount special rule detection (e.g. Fly on Bone Dragon)
+  useEffect(() => {
+    if (list?.compPackId && list?.game && list?.army) {
+      loadArmyRules(list.game, list.army).then(() => setArmyRulesReady(true));
+    }
+  }, [list?.compPackId, list?.game, list?.army]);
+
   useEffect(() => {
     if (list) {
       dispatch(
@@ -77,7 +93,7 @@ export const Editor = ({ isMobile }) => {
         ),
       );
     }
-  }, [list, dispatch, language, intl]);
+  }, [list, dispatch, language, intl, armyRulesReady]);
 
   if (redirect) {
     return <Redirect to="/" />;
@@ -102,6 +118,10 @@ export const Editor = ({ isMobile }) => {
   }
 
   const armyComposition = list.armyComposition || list.army;
+  const compPack = list.compPackId
+    ? getCompPackById(list.compPackId)
+    : null;
+  const effectiveArmyPoints = getEffectivePoints(list);
   const allPoints = getAllPoints(list);
   const lordsPoints = getPoints({ list, type: "lords" });
   const heroesPoints = getPoints({ list, type: "heroes" });
@@ -111,64 +131,60 @@ export const Editor = ({ isMobile }) => {
   const rarePoints = getPoints({ list, type: "rare" });
   const mercenariesPoints = getPoints({ list, type: "mercenaries" });
   const alliesPoints = getPoints({ list, type: "allies" });
-  const lordsData =
-    list.lords &&
-    getMaxPercentData({
-      type: "lords",
-      armyPoints: list.points,
-      points: lordsPoints,
+
+  // Helper: use comp pack limit if stricter than base limit (for max percent)
+  const getEffectiveMaxData = (type, points) => {
+    const baseData = getMaxPercentData({
+      type,
+      armyPoints: effectiveArmyPoints,
+      points,
       armyComposition,
     });
-  const heroesData =
-    list.lords &&
-    getMaxPercentData({
-      type: "heroes",
-      armyPoints: list.points,
-      points: heroesPoints,
+    const compData = getCompPackMaxPercentData({
+      type,
+      armyPoints: effectiveArmyPoints,
+      points,
+      compPack,
+      armyId: list.army,
+    });
+    if (!compData) return baseData;
+    if (!baseData) return compData;
+    // Use whichever limit is stricter (lower max points)
+    return compData.points < baseData.points ? compData : baseData;
+  };
+
+  // Helper: use comp pack limit if stricter than base limit (for min percent)
+  const getEffectiveMinData = (type, points) => {
+    const baseData = getMinPercentData({
+      type,
+      armyPoints: effectiveArmyPoints,
+      points,
       armyComposition,
     });
+    const compData = getCompPackMinPercentData({
+      type,
+      armyPoints: effectiveArmyPoints,
+      points,
+      compPack,
+      armyId: list.army,
+    });
+    if (!compData) return baseData;
+    if (!baseData) return compData;
+    // Use whichever limit is stricter (higher min points)
+    return compData.points > baseData.points ? compData : baseData;
+  };
+
+  const lordsData = list.lords && getEffectiveMaxData("lords", lordsPoints);
+  const heroesData = list.lords && getEffectiveMaxData("heroes", heroesPoints);
   const charactersData =
-    list.characters &&
-    getMaxPercentData({
-      type: "characters",
-      armyPoints: list.points,
-      points: charactersPoints,
-      armyComposition,
-    });
-  const coreData = getMinPercentData({
-    type: "core",
-    armyPoints: list.points,
-    points: corePoints,
-    armyComposition,
-  });
-  const specialData = getMaxPercentData({
-    type: "special",
-    armyPoints: list.points,
-    points: specialPoints,
-    armyComposition,
-  });
-  const rareData = getMaxPercentData({
-    type: "rare",
-    armyPoints: list.points,
-    points: rarePoints,
-    armyComposition,
-  });
+    list.characters && getEffectiveMaxData("characters", charactersPoints);
+  const coreData = getEffectiveMinData("core", corePoints);
+  const specialData = getEffectiveMaxData("special", specialPoints);
+  const rareData = getEffectiveMaxData("rare", rarePoints);
   const mercenariesData =
-    list.mercenaries &&
-    getMaxPercentData({
-      type: "mercenaries",
-      armyPoints: list.points,
-      points: mercenariesPoints,
-      armyComposition,
-    });
+    list.mercenaries && getEffectiveMaxData("mercenaries", mercenariesPoints);
   const alliesData =
-    list.allies &&
-    getMaxPercentData({
-      type: "allies",
-      armyPoints: list.points,
-      points: alliesPoints,
-      armyComposition,
-    });
+    list.allies && getEffectiveMaxData("allies", alliesPoints);
   const moreButtons = [
     {
       name: intl.formatMessage({
@@ -260,17 +276,21 @@ export const Editor = ({ isMobile }) => {
               <span
                 className={classNames(
                   "magic__header-points",
-                  allPoints > list.points && "magic__header-points--error",
+                  allPoints > effectiveArmyPoints &&
+                    "magic__header-points--error",
                 )}
               >
                 {allPoints}&nbsp;
               </span>
-              {`/ ${list.points} ${intl.formatMessage({
+              {`/ ${effectiveArmyPoints} ${intl.formatMessage({
                 id: "app.points",
               })}`}
+              {compPack &&
+                effectiveArmyPoints !== list.points &&
+                ` (${list.points}${effectiveArmyPoints > list.points ? "+" : ""}${effectiveArmyPoints - list.points})`}
             </>
           }
-          hasPointsError={allPoints > list.points}
+          hasPointsError={allPoints > effectiveArmyPoints}
           moreButton={moreButtons}
           navigationIcon="more"
         />
@@ -287,22 +307,35 @@ export const Editor = ({ isMobile }) => {
                 <span
                   className={classNames(
                     "magic__header-points",
-                    allPoints > list.points && "magic__header-points--error",
+                    allPoints > effectiveArmyPoints &&
+                      "magic__header-points--error",
                   )}
                 >
                   {allPoints}&nbsp;
                 </span>
-                {`/ ${list.points} ${intl.formatMessage({
+                {`/ ${effectiveArmyPoints} ${intl.formatMessage({
                   id: "app.points",
                 })}`}
+                {compPack &&
+                  effectiveArmyPoints !== list.points &&
+                  ` (${list.points}${effectiveArmyPoints > list.points ? "+" : ""}${effectiveArmyPoints - list.points})`}
               </>
             }
-            hasPointsError={allPoints > list.points}
+            hasPointsError={allPoints > effectiveArmyPoints}
             moreButton={moreButtons}
             navigationIcon="more"
           />
         )}
         <section>
+          {compPack && (
+            <p className="unit__notes" style={{ marginBottom: "0.5rem" }}>
+              <Icon symbol="shield" className="unit__notes-icon" />
+              <FormattedMessage
+                id="editor.compPackActive"
+                values={{ name: compPack.name }}
+              />
+            </p>
+          )}
           {errors
             .filter(({ section }) => section === "global")
             .map(({ message }) => (
@@ -427,7 +460,7 @@ export const Editor = ({ isMobile }) => {
 
             {errors
               .filter(({ section }) => section === "characters")
-              .map(({ message, name, diff, min, max, option }, index) => (
+              .map(({ message, name, diff, min, max, option, command, percent, rule, unitName }, index) => (
                 <ErrorMessage key={message + index} spaceBefore>
                   <FormattedMessage
                     id={message}
@@ -437,6 +470,10 @@ export const Editor = ({ isMobile }) => {
                       min,
                       max,
                       option,
+                      command,
+                      percent,
+                      rule,
+                      unitName,
                     }}
                   />
                 </ErrorMessage>
@@ -486,7 +523,7 @@ export const Editor = ({ isMobile }) => {
 
           {errors
             .filter(({ section }) => section === "core")
-            .map(({ message, name, min, max, diff, option }, index) => (
+            .map(({ message, name, min, max, diff, option, command, percent, rule, unitName }, index) => (
               <ErrorMessage key={message + index} spaceBefore>
                 <FormattedMessage
                   id={message}
@@ -496,6 +533,10 @@ export const Editor = ({ isMobile }) => {
                     max,
                     diff,
                     option,
+                    command,
+                    percent,
+                    rule,
+                    unitName,
                   }}
                 />
               </ErrorMessage>
@@ -543,7 +584,7 @@ export const Editor = ({ isMobile }) => {
 
           {errors
             .filter(({ section }) => section === "special")
-            .map(({ message, name, diff, min, max, option }, index) => (
+            .map(({ message, name, diff, min, max, option, command, percent, rule, unitName }, index) => (
               <ErrorMessage key={message + index} spaceBefore>
                 <FormattedMessage
                   id={message}
@@ -553,6 +594,10 @@ export const Editor = ({ isMobile }) => {
                     min,
                     max,
                     option,
+                    command,
+                    percent,
+                    rule,
+                    unitName,
                   }}
                 />
               </ErrorMessage>
@@ -600,7 +645,7 @@ export const Editor = ({ isMobile }) => {
 
           {errors
             .filter(({ section }) => section === "rare")
-            .map(({ message, name, diff, min, max, option }, index) => (
+            .map(({ message, name, diff, min, max, option, command, percent, rule, unitName }, index) => (
               <ErrorMessage key={message + index} spaceBefore>
                 <FormattedMessage
                   id={message}
@@ -610,6 +655,10 @@ export const Editor = ({ isMobile }) => {
                     min,
                     max,
                     option,
+                    command,
+                    percent,
+                    rule,
+                    unitName,
                   }}
                 />
               </ErrorMessage>
@@ -664,7 +713,7 @@ export const Editor = ({ isMobile }) => {
 
               {errors
                 .filter(({ section }) => section === "mercenaries")
-                .map(({ message, name, diff, min, max, option }, index) => (
+                .map(({ message, name, diff, min, max, option, command, percent, rule, unitName }, index) => (
                   <ErrorMessage key={message + index} spaceBefore>
                     <FormattedMessage
                       id={message}
@@ -674,6 +723,10 @@ export const Editor = ({ isMobile }) => {
                         min,
                         max,
                         option,
+                        command,
+                        percent,
+                        rule,
+                        unitName,
                       }}
                     />
                   </ErrorMessage>
@@ -723,7 +776,7 @@ export const Editor = ({ isMobile }) => {
 
             {errors
               .filter(({ section }) => section === "allies")
-              .map(({ message, name, diff, min, max, option }, index) => (
+              .map(({ message, name, diff, min, max, option, command, percent, rule, unitName }, index) => (
                 <ErrorMessage key={message + index} spaceBefore>
                   <FormattedMessage
                     id={message}
@@ -733,6 +786,10 @@ export const Editor = ({ isMobile }) => {
                       min,
                       max,
                       option,
+                      command,
+                      percent,
+                      rule,
+                      unitName,
                     }}
                   />
                 </ErrorMessage>

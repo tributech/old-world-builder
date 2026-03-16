@@ -1,0 +1,202 @@
+.comp-packs .list__inner {
+  cursor: default;
+}
+
+.comp-packs .list__inner::before {
+  display: none;
+}
+
+.comp-packs .list__inner .button {
+  padding: 0;
+  height: 22px;
+  margin-left: 0.5rem;
+}
+
+.comp-packs__actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.comp-packs__form {
+  margin-top: 1rem;
+}
+
+.comp-packs__form > label {
+  display: block;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.comp-packs__form > label:first-child {
+  margin-top: 0;
+}
+
+.comp-packs__section {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--color-list);
+}
+
+.comp-packs__section-header {
+  margin-bottom: 0.5rem;
+}
+
+.comp-packs__section-header h3 {
+  margin: 0;
+}
+
+/* Row layout for form fields */
+.comp-packs__row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.comp-packs__row .input {
+  margin: 0;
+  min-width: 0;
+}
+
+/* Text inputs and selects take available space */
+.comp-packs__row input[type="text"],
+.comp-packs__row select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Number inputs get fixed narrow width */
+.comp-packs__row input[type="number"] {
+  flex: 0 0 80px;
+  width: 80px;
+}
+
+/* Labels in rows stay fixed width */
+.comp-packs__row > span {
+  flex: 0 0 110px;
+}
+
+.comp-packs__row .button {
+  flex-shrink: 0;
+}
+
+/* Standalone selects (add category, add army) */
+.comp-packs__section > select.select {
+  margin-top: 0.5rem;
+}
+
+.comp-packs__error {
+  margin: 1rem 0;
+  text-align: center;
+  color: var(--color-error);
+}
+
+.comp-packs__pack-name {
+  font-weight: bold;
+}
+
+.comp-packs__id {
+  font-size: 0.8em;
+  color: var(--color-text-secondary);
+  font-family: monospace;
+}
+
+/* Category row layout */
+.comp-packs__category-row {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-list);
+}
+
+.comp-packs__category-row:last-of-type {
+  border-bottom: none;
+}
+
+.comp-packs__category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.comp-packs__category-header .button {
+  padding: 0;
+  height: 22px;
+}
+
+.comp-packs__category-fields {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.comp-packs__field {
+  flex: 1;
+}
+
+.comp-packs__field label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.15rem;
+}
+
+.comp-packs__field .input {
+  width: 100%;
+  margin: 0;
+}
+
+/* Checkbox inline */
+.comp-packs__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Unit tags */
+.comp-packs__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.comp-packs__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--color-list);
+  border-radius: 3px;
+  font-size: 0.85rem;
+}
+
+.comp-packs__tag-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  color: var(--color-font);
+  opacity: 0.6;
+}
+
+.comp-packs__tag-remove:hover {
+  opacity: 1;
+}
+
+/* Army override expandable headers */
+.comp-packs__pack-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.comp-packs__pack-header .button {
+  padding: 0;
+  height: 22px;
+}

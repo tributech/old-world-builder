@@ -4,6 +4,7 @@ import { equalsOrIncludes } from "./string";
 import { getUnitPoints } from "./points";
 import { getUnitName, getUnitLeadership, getUnitRuleData } from "./unit";
 import { joinWithAnd, joinWithOr } from "./string";
+import { validateCompPack } from "./comp-pack-validation";
 
 const filterByTroopType = (unit) => {
   const ruleData = getUnitRuleData(unit.name_en);
@@ -1019,6 +1020,11 @@ export const validateList = ({ list, language, intl }) => {
     mercenariesUnitsRules.forEach((ruleUnit) => {
       checkRules({ ruleUnit, type: "mercenaries" });
     });
+
+  // Comp pack validation
+  if (list.compPackId) {
+    errors.push(...validateCompPack({ list }));
+  }
 
   return errors;
 };

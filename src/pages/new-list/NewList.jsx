@@ -14,6 +14,7 @@ import { getRandomId } from "../../utils/id";
 import { useLanguage } from "../../utils/useLanguage";
 import { setLists } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
+import { getCompPacks } from "../../utils/comp-packs";
 import { RulesIndex, RuleWithIcon } from "../../components/rules-index";
 
 import { nameMap } from "../magic";
@@ -36,7 +37,9 @@ export const NewList = ({ isMobile }) => {
   const [description, setDescription] = useState("");
   const [points, setPoints] = useState(2000);
   const [armyComposition, setArmyComposition] = useState("empire-of-man");
+  const [compPackId, setCompPackId] = useState("");
   const [redirect, setRedirect] = useState(null);
+  const compPacks = getCompPacks();
   const armies = gameSystems
     .filter(({ id }) => id === game)[0]
     .armies.sort((a, b) => a.id.localeCompare(b.id));
@@ -99,6 +102,7 @@ export const NewList = ({ isMobile }) => {
       url: armyData?.url,
       armyComposition,
       compositionRule,
+      ...(compPackId ? { compPackId } : {}),
     };
     const newLists = [newList, ...lists];
     const newSettings = { ...settings, lastChanged: new Date().toString() };
@@ -129,6 +133,9 @@ export const NewList = ({ isMobile }) => {
   };
   const handleCompositionRuleChange = (value) => {
     setCompositionRule(value);
+  };
+  const handleCompPackChange = (value) => {
+    setCompPackId(value || "");
   };
   const handlePointsChange = (event) => {
     setPoints(event.target.value);
@@ -264,6 +271,30 @@ export const NewList = ({ isMobile }) => {
               />
             </p>
           </Expandable>
+
+          {compPacks.length > 0 && (
+            <>
+              <label htmlFor="comp-pack">
+                <FormattedMessage id="new.compPack" />
+              </label>
+              <Select
+                id="comp-pack"
+                options={[
+                  {
+                    id: "",
+                    name_en: intl.formatMessage({ id: "new.compPackNone" }),
+                  },
+                  ...compPacks.map((pack) => ({
+                    id: pack.id,
+                    name_en: pack.name,
+                  })),
+                ]}
+                onChange={handleCompPackChange}
+                selected={compPackId}
+                spaceBottom
+              />
+            </>
+          )}
 
           <label htmlFor="points">
             <FormattedMessage id="misc.points" />

@@ -90,6 +90,13 @@ export const Header = ({
       to: "/custom-datasets",
       icon: "datasets",
     },
+    {
+      name: intl.formatMessage({
+        id: "compPacks.title",
+      }),
+      to: "/comp-packs",
+      icon: "shield",
+    },
   ];
   const navigation = hasMainNavigation ? navigationLinks : moreButton;
   const logout = () => {

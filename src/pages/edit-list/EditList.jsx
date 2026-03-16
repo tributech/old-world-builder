@@ -10,6 +10,7 @@ import { Select } from "../../components/select";
 import { Icon } from "../../components/icon";
 import { updateList } from "../../state/lists";
 import { useLanguage } from "../../utils/useLanguage";
+import { getCompPacks } from "../../utils/comp-packs";
 
 import { nameMap } from "../magic";
 
@@ -44,6 +45,7 @@ export const EditList = ({ isMobile }) => {
       name_en: intl.formatMessage({ id: "misc.battle-march" }),
     },
   ];
+  const compPacks = getCompPacks();
   const list = useSelector((state) =>
     state.lists.find(({ id }) => listId === id),
   );
@@ -77,6 +79,14 @@ export const EditList = ({ isMobile }) => {
       updateList({
         listId,
         compositionRule: value,
+      }),
+    );
+  };
+  const handleCompPackChange = (value) => {
+    dispatch(
+      updateList({
+        listId,
+        compPackId: value || "",
       }),
     );
   };
@@ -177,6 +187,29 @@ export const EditList = ({ isMobile }) => {
           selected={list.compositionRule || "open-war"}
           spaceBottom
         />
+        {compPacks.length > 0 && (
+          <>
+            <label htmlFor="comp-pack">
+              <FormattedMessage id="new.compPack" />
+            </label>
+            <Select
+              id="comp-pack"
+              options={[
+                {
+                  id: "",
+                  name_en: intl.formatMessage({ id: "new.compPackNone" }),
+                },
+                ...compPacks.map((pack) => ({
+                  id: pack.id,
+                  name_en: pack.name,
+                })),
+              ]}
+              onChange={handleCompPackChange}
+              selected={list.compPackId || ""}
+              spaceBottom
+            />
+          </>
+        )}
       </MainComponent>
     </>
   );

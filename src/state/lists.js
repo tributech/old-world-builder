@@ -17,6 +17,7 @@ export const listsSlice = createSlice({
         points,
         description,
         compositionRule,
+        compPackId,
         folder,
         lastChanged,
       } = payload;
@@ -25,6 +26,7 @@ export const listsSlice = createSlice({
         points,
         description,
         compositionRule,
+        compPackId,
         folder,
         lastChanged,
       };
