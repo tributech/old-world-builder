@@ -27,6 +27,7 @@ import { BattleTavern } from "./pages/battle-tavern/BattleTavern";
 import { Settings } from "./pages/settings";
 import { setLists } from "./state/lists";
 import { setSettings } from "./state/settings";
+import { migrateLists } from "./utils/migrate-lists";
 import { Header, Main } from "./components/page";
 
 import {
@@ -71,7 +72,7 @@ export const App = () => {
     const localLists = localStorage.getItem("owb.lists");
     const localSettings = localStorage.getItem("owb.settings");
 
-    dispatch(setLists(JSON.parse(localLists)));
+    dispatch(setLists(migrateLists(JSON.parse(localLists))));
     dispatch(setSettings(JSON.parse(localSettings)));
   }, [dispatch]);
 

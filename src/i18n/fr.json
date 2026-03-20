@@ -172,6 +172,7 @@
   "misc.error.compPackMaxDuplicates": "{name}: {diff} too many {unitName} (max {max} per unit)",
   "misc.error.compPackDisabledCommand": "{name}: {command} is not allowed",
   "misc.error.compPackOptionMaxCount": "{name}: {diff} too many {command} (max {max})",
+  "misc.error.compPackWizardLimit": "{name}: Too many Level {level} Wizards (max {max})",
   "pwa.button": "Installer l'application",
   "pwa.prompt": "Old World Builder peut être installé comme une application sur votre appareil. Installer maintenant ?",
   "editor.add": "Ajouter",

@@ -172,6 +172,7 @@
   "misc.error.compPackMaxDuplicates": "{name}: {diff} too many {unitName} (max {max} per unit)",
   "misc.error.compPackDisabledCommand": "{name}: {command} is not allowed",
   "misc.error.compPackOptionMaxCount": "{name}: {diff} too many {command} (max {max})",
+  "misc.error.compPackWizardLimit": "{name}: Too many Level {level} Wizards (max {max})",
   "pwa.button": "安装app",
   "pwa.prompt": "旧世界写表器可以作为app被安装到你的设备上。现在安装？",
   "editor.add": "添加",

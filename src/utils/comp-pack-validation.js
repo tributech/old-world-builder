@@ -1,18 +1,14 @@
-import { getCompPackById, resolveCompPack } from "./comp-packs";
+import { getAnyPackById, resolveCompPack } from "./comp-packs";
 import { getUnitPoints } from "./points";
 import { findAllOptions } from "./unit";
+import { rules } from "./rules";
 import { rulesMap } from "../components/rules-index/rules-map";
 import { normalizeRuleName } from "./string";
 
-/**
- * Cache: army ID → map of unit/creature name → specialRules text.
- * Loaded per-army on demand (single fetch per army).
- */
+// ─── Mount rules cache (per-army, loaded on demand) ───────────────────────
+
 const armyRulesCache = {};
 
-/**
- * Fetch special rules text from tow.whfb.app for a mount/creature.
- */
 const fetchMountRules = async (mountName) => {
   const normalized = normalizeRuleName(mountName);
   const ruleData = rulesMap[normalized];
@@ -22,15 +18,12 @@ const fetchMountRules = async (mountName) => {
       `https://tow.whfb.app/${ruleData.url}?minimal=true`,
     );
     const html = await resp.text();
-    // Parse special rules from the page — they're in a consistent format
     const match = html.match(
       /Special Rules:?\s*<\/[^>]+>\s*(?:<[^>]+>)*([\s\S]*?)(?:<\/|$)/i,
     );
     if (match) {
-      // Clean HTML tags and extract text
       return match[1].replace(/<[^>]+>/g, "").trim();
     }
-    // Fallback: look for rules in links
     const ruleLinks = [...html.matchAll(/>([^<]+)<\/a>/g)]
       .map((m) => m[1].trim())
       .filter((r) => r.length > 2 && r.length < 50);
@@ -43,11 +36,6 @@ const fetchMountRules = async (mountName) => {
   return null;
 };
 
-/**
- * Load a single army's unit/mount name → specialRules mapping.
- * Fetches the army JSON, indexes all units, then fetches mount rules
- * from tow.whfb.app for any mounts not already covered.
- */
 export const loadArmyRules = async (game, armyId) => {
   if (armyRulesCache[armyId]) return;
   try {
@@ -59,12 +47,10 @@ export const loadArmyRules = async (game, armyId) => {
     for (const cat of ["characters", "core", "special", "rare"]) {
       if (data[cat]) {
         for (const unit of data[cat]) {
-          // Index unit's own special rules
           if (unit.specialRules?.name_en && unit.name_en) {
             nameMap[unit.name_en.toLowerCase().replace(/ \{.*\}/, "")] =
               unit.specialRules.name_en;
           }
-          // Collect mount names that aren't already indexed
           if (unit.mounts) {
             for (const mount of unit.mounts) {
               const key = mount.name_en
@@ -79,23 +65,19 @@ export const loadArmyRules = async (game, armyId) => {
       }
     }
 
-    // Fetch special rules for unresolved mounts from tow.whfb.app
     const uniqueMounts = [...new Set(mountsToFetch)];
     await Promise.all(
       uniqueMounts.map(async (mountName) => {
         const key = mountName.toLowerCase().replace(/ \{.*\}/, "");
-        if (nameMap[key]) return; // already resolved
-        const rules = await fetchMountRules(mountName);
-        if (rules) {
-          nameMap[key] = rules;
+        if (nameMap[key]) return;
+        const mountRules = await fetchMountRules(mountName);
+        if (mountRules) {
+          nameMap[key] = mountRules;
         }
       }),
     );
 
     armyRulesCache[armyId] = nameMap;
-    console.log(
-      `[Comp Pack] Army rules loaded for ${armyId}: ${Object.keys(nameMap).length} entries`,
-    );
   } catch {
     armyRulesCache[armyId] = {};
   }
@@ -108,19 +90,11 @@ const getMountRulesFromArmy = (mountName, armyId) => {
   return cache[key] || null;
 };
 
-/**
- * Check if a unit has a given special rule (e.g. "Fly", "Ethereal").
- * Checks both inherent specialRules text and active selectable options.
- *
- * @param {object} unit - The unit object from the list
- * @param {string} ruleName - The rule name to search for (case-insensitive)
- * @param {string} armyComposition - The army composition key for resolving specialRules
- * @returns {boolean}
- */
+// ─── Unit rule detection ──────────────────────────────────────────────────
+
 export const unitHasRule = (unit, ruleName, armyComposition) => {
   const rulePattern = new RegExp(`\\b${escapeRegExp(ruleName)}\\b`, "i");
 
-  // Check inherent specialRules (may be on unit directly or under armyComposition variant)
   const specialRules =
     unit?.armyComposition?.[armyComposition]?.specialRules ||
     unit.specialRules;
@@ -129,44 +103,29 @@ export const unitHasRule = (unit, ruleName, armyComposition) => {
     return true;
   }
 
-  // Check active selectable options (recursive through nested options)
   const matchingOptions = findAllOptions(
     unit.options || [],
     (option) => option.active && rulePattern.test(option.name_en || ""),
     true,
   );
+  if (matchingOptions.length > 0) return true;
 
-  if (matchingOptions.length > 0) {
-    return true;
-  }
-
-  // Check active mount options (mounts can grant rules like Fly)
   if (unit.mounts) {
     const activeMounts = unit.mounts.filter(
       (mount) => mount.active && mount.name_en !== "On foot",
     );
-
     for (const mount of activeMounts) {
-      // Check if mount name itself matches the rule
-      if (rulePattern.test(mount.name_en || "")) {
-        return true;
-      }
+      if (rulePattern.test(mount.name_en || "")) return true;
 
-      // Check mount's special rules from army data (e.g. Bone Dragon has Fly)
       const mountRules = getMountRulesFromArmy(mount.name_en, armyComposition);
-      if (mountRules && rulePattern.test(mountRules)) {
-        return true;
-      }
+      if (mountRules && rulePattern.test(mountRules)) return true;
 
-      // Check mount sub-options
       const mountOptions = findAllOptions(
         mount.options || [],
         (option) => option.active && rulePattern.test(option.name_en || ""),
         true,
       );
-      if (mountOptions.length > 0) {
-        return true;
-      }
+      if (mountOptions.length > 0) return true;
     }
   }
 
@@ -177,6 +136,36 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// ─── Wizard level counting (ported from validation.js) ────────────────────
+
+function incrementLevels(listOfOptionHolders, wizardLevels) {
+  if (listOfOptionHolders && listOfOptionHolders.length) {
+    listOfOptionHolders
+      .filter((optionHolder) => optionHolder.options)
+      .flatMap((optionHolder) => optionHolder.options)
+      .filter((option) => option.active)
+      .forEach((activeOption) => {
+        const match = activeOption.name_en
+          .toLowerCase()
+          .match(/level\s*(\d+)\s*wizard/);
+        if (match && match[1]) {
+          wizardLevels[parseInt(match[1], 10)]++;
+        }
+        activeOption.options && incrementLevels([activeOption], wizardLevels);
+      });
+  }
+}
+
+const getWizardLevels = (unitToCheck) => {
+  let wizardLevels = [0, 0, 0, 0, 0];
+  incrementLevels([unitToCheck], wizardLevels);
+  incrementLevels(unitToCheck.command, wizardLevels);
+  incrementLevels(unitToCheck.mounts, wizardLevels);
+  return wizardLevels;
+};
+
+// ─── Shared helpers ───────────────────────────────────────────────────────
+
 const CATEGORIES = [
   "characters",
   "core",
@@ -186,9 +175,6 @@ const CATEGORIES = [
   "allies",
 ];
 
-/**
- * Get all units from a list across specified categories, each tagged with their category.
- */
 const getAllUnits = (list) => {
   const units = [];
   for (const category of CATEGORIES) {
@@ -201,24 +187,28 @@ const getAllUnits = (list) => {
   return units;
 };
 
-/**
- * Validate a list against a comp pack. Returns an array of error objects
- * in the same shape as validateList errors: { message, section, ...values }
- */
-export const validateCompPack = ({ list }) => {
-  const compPack = list.compPackId
-    ? getCompPackById(list.compPackId)
-    : null;
+const hasSharedCombinedArmsLimit = (otherUnit, unitToValidate) => {
+  return (
+    otherUnit.sharedCombinedArmsUnits &&
+    otherUnit.sharedCombinedArmsUnits.includes(unitToValidate.id.split(".")[0])
+  );
+};
 
-  if (!compPack) return [];
+// ─── Single pack validation ───────────────────────────────────────────────
+
+/**
+ * Validate a list against a single comp pack.
+ * Returns { errors: [...], minNonCharacterUnits: number|null }
+ */
+export const validateSinglePack = ({ list, compPack }) => {
+  if (!compPack) return { errors: [], minNonCharacterUnits: null };
 
   const armyId = list.army;
   const resolved = resolveCompPack(compPack, armyId);
   const errors = [];
-
-  // Effective army points budget (base + adjustment)
   const effectivePoints = list.points + (resolved.pointsAdjustment || 0);
   const armyComposition = list.armyComposition || list.army;
+  let minNonCharacterUnits = null;
 
   // --- Category percentage overrides ---
   for (const [category, limits] of Object.entries(resolved.categories)) {
@@ -256,7 +246,7 @@ export const validateCompPack = ({ list }) => {
       });
     }
 
-    // Max duplicates of any single unit in this category
+    // Flat max duplicates
     if (limits.maxDuplicates !== undefined) {
       const unitCounts = {};
       list[category].forEach((unit) => {
@@ -288,22 +278,6 @@ export const validateCompPack = ({ list }) => {
       unitHasRule(unit, ruleLimit.rule, armyComposition),
     );
 
-    console.group(`[Comp Pack] Rule limit: ${ruleLimit.rule}`);
-    console.log(`Effective army points: ${effectivePoints}`);
-    console.log(`Max %: ${ruleLimit.maxPercent}, Max pts: ${Math.floor((effectivePoints / 100) * ruleLimit.maxPercent)}`);
-    allUnits.forEach(({ unit, category }) => {
-      const has = unitHasRule(unit, ruleLimit.rule, armyComposition);
-      const pts = getUnitPoints({ ...unit, type: category }, { armyComposition });
-      const activeMountName = unit.mounts?.find((m) => m.active && m.name_en !== "On foot")?.name_en;
-      console.log(
-        `  ${has ? "✓" : "✗"} ${unit.name_en} (${category}, ${pts}pts)` +
-        (activeMountName ? ` [mount: ${activeMountName}]` : "") +
-        ` rules: ${unit.specialRules?.name_en?.substring(0, 80) || "none"}`,
-      );
-    });
-    console.log(`Total matching: ${matchingUnits.length} units`);
-
-    // Max percentage of points on units with this rule
     if (ruleLimit.maxPercent !== undefined) {
       let rulePoints = 0;
       matchingUnits.forEach(({ unit, category }) => {
@@ -312,12 +286,9 @@ export const validateCompPack = ({ list }) => {
           { armyComposition },
         );
       });
-
       const maxPoints = Math.floor(
         (effectivePoints / 100) * ruleLimit.maxPercent,
       );
-      console.log(`Total ${ruleLimit.rule} points: ${rulePoints} / ${maxPoints} (${rulePoints > maxPoints ? "OVER" : "ok"})`);
-      console.groupEnd();
       if (rulePoints > maxPoints) {
         errors.push({
           message: "misc.error.compPackRuleMaxPercent",
@@ -329,7 +300,6 @@ export const validateCompPack = ({ list }) => {
       }
     }
 
-    // Max count of units with this rule
     if (ruleLimit.maxCount !== undefined) {
       if (matchingUnits.length > ruleLimit.maxCount) {
         errors.push({
@@ -351,7 +321,6 @@ export const validateCompPack = ({ list }) => {
       unitLimit.ids.includes(unit.id.split(".")[0]),
     );
 
-    // Max count
     if (unitLimit.max !== undefined && matchingUnits.length > unitLimit.max) {
       errors.push({
         message: "misc.error.compPackUnitMaxCount",
@@ -361,7 +330,6 @@ export const validateCompPack = ({ list }) => {
       });
     }
 
-    // Max percentage of points
     if (unitLimit.maxPercent !== undefined) {
       let unitPoints = 0;
       matchingUnits.forEach(({ unit, category }) => {
@@ -370,7 +338,6 @@ export const validateCompPack = ({ list }) => {
           { armyComposition },
         );
       });
-
       const maxPoints = Math.floor(
         (effectivePoints / 100) * unitLimit.maxPercent,
       );
@@ -386,6 +353,7 @@ export const validateCompPack = ({ list }) => {
   }
 
   // --- Per-unit max percent caps ---
+  const noDetachments = compPack.noDetachmentsForPerUnitPercent || false;
   for (const [category, maxPercent] of Object.entries(
     resolved.perUnitMaxPercent,
   )) {
@@ -394,7 +362,12 @@ export const validateCompPack = ({ list }) => {
     list[category].forEach((unit) => {
       const unitPoints = getUnitPoints(
         { ...unit, type: category },
-        { armyComposition },
+        {
+          armyComposition,
+          ...(noDetachments && category !== "characters"
+            ? { noDetachments: true }
+            : {}),
+        },
       );
       const maxPoints = Math.floor((effectivePoints / 100) * maxPercent);
 
@@ -419,7 +392,10 @@ export const validateCompPack = ({ list }) => {
         for (const cmd of unit.command) {
           if (
             cmd.active &&
-            (cmd.name_en.toLowerCase().replace(/ /g, "-").includes(optionLimit.option) ||
+            (cmd.name_en
+              .toLowerCase()
+              .replace(/ /g, "-")
+              .includes(optionLimit.option) ||
               cmd.id === optionLimit.option)
           ) {
             matchingCommands.push({ cmd, category });
@@ -428,7 +404,6 @@ export const validateCompPack = ({ list }) => {
       }
     }
 
-    // Disabled option
     if (optionLimit.disabled && matchingCommands.length > 0) {
       for (const { cmd, category } of matchingCommands) {
         errors.push({
@@ -440,7 +415,6 @@ export const validateCompPack = ({ list }) => {
       }
     }
 
-    // Max count
     if (
       optionLimit.maxCount !== undefined &&
       matchingCommands.length > optionLimit.maxCount
@@ -456,14 +430,222 @@ export const validateCompPack = ({ list }) => {
     }
   }
 
+  // --- Wizard limits (Grand Melee) ---
+  if (compPack.wizardLimits) {
+    const wizardSections = ["characters", "special", "rare"];
+    for (const wl of compPack.wizardLimits) {
+      const maxAllowed =
+        Math.floor(effectivePoints / wl.pointsInterval) * wl.maxPerPoints;
+      let totalAtLevel = 0;
+      const sectionCounts = {};
+
+      for (const section of wizardSections) {
+        let sectionCount = 0;
+        if (list[section]) {
+          list[section].forEach((unit) => {
+            const levels = getWizardLevels(unit);
+            if (levels[wl.level] > 0) {
+              sectionCount += levels[wl.level];
+            }
+          });
+        }
+        sectionCounts[section] = sectionCount;
+        totalAtLevel += sectionCount;
+      }
+
+      if (totalAtLevel > maxAllowed) {
+        for (const section of wizardSections) {
+          if (sectionCounts[section] > 0) {
+            errors.push({
+              message: "misc.error.compPackWizardLimit",
+              section,
+              level: wl.level,
+              max: maxAllowed,
+              name: compPack.name,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // --- Scaling duplicate limits (Combined Arms) ---
+  if (compPack.scalingDuplicateLimits) {
+    const armyRules = rules[armyComposition] || rules["grand-army"];
+
+    for (const [category, scaling] of Object.entries(
+      compPack.scalingDuplicateLimits,
+    )) {
+      if (!list[category]) continue;
+
+      const maxDuplicates =
+        scaling.base +
+        Math.max(
+          Math.floor((effectivePoints - scaling.bonusAbove) / scaling.bonusPer),
+          0,
+        );
+
+      const categoryUnitsRules = armyRules?.[category]?.units;
+
+      // Count duplicates per unit ID
+      const unitCounts = {};
+      list[category].forEach((unit) => {
+        const baseId = unit.id.split(".")[0];
+
+        // For core, also count shared combined arms units together
+        if (category === "core") {
+          const countKey =
+            list[category].find(
+              (other) =>
+                other.id.split(".")[0] !== baseId &&
+                hasSharedCombinedArmsLimit(other, unit),
+            )?.id.split(".")[0] || baseId;
+          // Use the lower ID as the canonical key for shared units
+          const canonicalKey =
+            countKey < baseId ? countKey : baseId;
+          unitCounts[canonicalKey] = (unitCounts[canonicalKey] || 0) + 1;
+        } else {
+          unitCounts[baseId] = (unitCounts[baseId] || 0) + 1;
+        }
+      });
+
+      for (const [baseId, count] of Object.entries(unitCounts)) {
+        // Skip units already restricted by army rules
+        if (compPack.respectArmyLimits && categoryUnitsRules) {
+          const isRestricted = categoryUnitsRules.some((ruleUnit) => {
+            if (!ruleUnit.ids.includes(baseId)) return false;
+            // Characters: skip if has min or max
+            if (category === "characters") return ruleUnit.max || ruleUnit.min;
+            // Others: skip if has max
+            return ruleUnit.max;
+          });
+          if (isRestricted) continue;
+        }
+
+        // Skip named characters (they're inherently unique)
+        const unit = list[category].find(
+          (u) => u.id.split(".")[0] === baseId,
+        );
+        if (category === "characters" && unit?.named) continue;
+
+        if (count > maxDuplicates) {
+          errors.push({
+            message: "misc.error.maxUnits",
+            section: category,
+            diff: count - maxDuplicates,
+            name: unit?.name_en || baseId,
+          });
+        }
+      }
+    }
+  }
+
+  // --- Min non-character units (Battle March) ---
+  if (compPack.minNonCharacterUnits !== undefined) {
+    minNonCharacterUnits = compPack.minNonCharacterUnits;
+  }
+
+  // --- Max 0-X unit types (Battle March) ---
+  if (compPack.max0XUnitTypes !== undefined) {
+    const armyRules = rules[armyComposition] || rules["grand-army"];
+    const used0XTypes = new Set();
+
+    // Scan all category rules for "0-X per 1000 points" entries with units in the list
+    for (const category of CATEGORIES) {
+      const categoryRules = armyRules?.[category]?.units;
+      if (!categoryRules || !list[category]) continue;
+
+      for (const ruleUnit of categoryRules) {
+        if (ruleUnit.max > 0 && ruleUnit.points === 1000) {
+          const unitsInList = list[category].filter(
+            (unit) =>
+              ruleUnit.ids && ruleUnit.ids.includes(unit.id.split(".")[0]),
+          );
+          if (unitsInList.length > 0) {
+            unitsInList.forEach((unit) =>
+              used0XTypes.add(unit.id.split(".")[0]),
+            );
+          }
+        }
+      }
+    }
+
+    if (used0XTypes.size > compPack.max0XUnitTypes) {
+      // Report on each category that has 0-X units exceeding their limit
+      for (const category of CATEGORIES) {
+        const categoryRules = armyRules?.[category]?.units;
+        if (!categoryRules || !list[category]) continue;
+
+        for (const ruleUnit of categoryRules) {
+          if (ruleUnit.max > 0 && ruleUnit.points === 1000) {
+            const max =
+              Math.floor(effectivePoints / ruleUnit.points) * ruleUnit.max;
+            const unitsInList = list[category].filter(
+              (unit) =>
+                ruleUnit.ids && ruleUnit.ids.includes(unit.id.split(".")[0]),
+            );
+            if (unitsInList.length > max) {
+              errors.push({
+                message: "misc.error.battleMarchMultiple0XUnits",
+                section: category,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return { errors, minNonCharacterUnits };
+};
+
+// ─── Multi-pack validation ────────────────────────────────────────────────
+
+/**
+ * Validate a list against all packs in compositionRules.
+ * Returns { errors: [...], minNonCharacterUnits: number|null }
+ */
+export const validateCompPacks = ({ list }) => {
+  const packIds = list.compositionRules || [];
+  // Fallback for old lists not yet migrated
+  if (packIds.length === 0 && list.compPackId) {
+    packIds.push(list.compPackId);
+  }
+
+  const allErrors = [];
+  let minNonChar = null;
+
+  for (const packId of packIds) {
+    const compPack = getAnyPackById(packId);
+    if (!compPack) continue;
+
+    const { errors, minNonCharacterUnits } = validateSinglePack({
+      list,
+      compPack,
+    });
+    allErrors.push(...errors);
+
+    if (minNonCharacterUnits !== null) {
+      // Use the lowest override (most restrictive could go either way,
+      // but Battle March uses 2 which is less than default 3)
+      minNonChar =
+        minNonChar === null
+          ? minNonCharacterUnits
+          : Math.min(minNonChar, minNonCharacterUnits);
+    }
+  }
+
+  return { errors: allErrors, minNonCharacterUnits: minNonChar };
+};
+
+// Keep old single-pack function for backward compat during transition
+export const validateCompPack = ({ list }) => {
+  const { errors } = validateCompPacks({ list });
   return errors;
 };
 
-/**
- * Get comp-pack-adjusted max percent data for a category.
- * Returns the same shape as getMaxPercentData from rules.js,
- * but uses comp pack overrides if stricter.
- */
+// ─── Editor helpers ───────────────────────────────────────────────────────
+
 export const getCompPackMaxPercentData = ({
   type,
   armyPoints,
@@ -490,9 +672,6 @@ export const getCompPackMaxPercentData = ({
   };
 };
 
-/**
- * Get comp-pack-adjusted min percent data for a category.
- */
 export const getCompPackMinPercentData = ({
   type,
   armyPoints,
@@ -520,14 +699,21 @@ export const getCompPackMinPercentData = ({
 };
 
 /**
- * Get the effective points budget for a list, accounting for comp pack adjustment.
+ * Get the effective points budget for a list, accounting for all pack adjustments.
  */
 export const getEffectivePoints = (list) => {
-  if (!list.compPackId) return list.points;
+  const packIds = list.compositionRules || [];
+  if (packIds.length === 0 && list.compPackId) {
+    packIds.push(list.compPackId);
+  }
 
-  const compPack = getCompPackById(list.compPackId);
-  if (!compPack) return list.points;
+  let adjustment = 0;
+  for (const packId of packIds) {
+    const compPack = getAnyPackById(packId);
+    if (!compPack) continue;
+    const resolved = resolveCompPack(compPack, list.army);
+    adjustment += resolved.pointsAdjustment || 0;
+  }
 
-  const resolved = resolveCompPack(compPack, list.army);
-  return list.points + (resolved.pointsAdjustment || 0);
+  return list.points + adjustment;
 };

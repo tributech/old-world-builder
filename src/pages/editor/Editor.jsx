@@ -6,7 +6,7 @@ import classNames from "classnames";
 import { Helmet } from "react-helmet-async";
 
 import { getMaxPercentData, getMinPercentData } from "../../utils/rules";
-import { getCompPackById } from "../../utils/comp-packs";
+import { getAnyPackById } from "../../utils/comp-packs";
 import {
   getCompPackMaxPercentData,
   getCompPackMinPercentData,
@@ -76,10 +76,14 @@ export const Editor = ({ isMobile }) => {
 
   // Load army rules for mount special rule detection (e.g. Fly on Bone Dragon)
   useEffect(() => {
-    if (list?.compPackId && list?.game && list?.army) {
+    const hasRuleLimits = (list?.compositionRules || []).some((id) => {
+      const pack = getAnyPackById(id);
+      return pack?.ruleLimits?.length > 0;
+    });
+    if (hasRuleLimits && list?.game && list?.army) {
       loadArmyRules(list.game, list.army).then(() => setArmyRulesReady(true));
     }
-  }, [list?.compPackId, list?.game, list?.army]);
+  }, [list?.compositionRules, list?.game, list?.army]);
 
   useEffect(() => {
     if (list) {
@@ -118,9 +122,9 @@ export const Editor = ({ isMobile }) => {
   }
 
   const armyComposition = list.armyComposition || list.army;
-  const compPack = list.compPackId
-    ? getCompPackById(list.compPackId)
-    : null;
+  const activePacks = (list.compositionRules || [])
+    .map((id) => getAnyPackById(id))
+    .filter(Boolean);
   const effectiveArmyPoints = getEffectivePoints(list);
   const allPoints = getAllPoints(list);
   const lordsPoints = getPoints({ list, type: "lords" });
@@ -132,44 +136,52 @@ export const Editor = ({ isMobile }) => {
   const mercenariesPoints = getPoints({ list, type: "mercenaries" });
   const alliesPoints = getPoints({ list, type: "allies" });
 
-  // Helper: use comp pack limit if stricter than base limit (for max percent)
+  // Helper: use strictest limit across base rules and all active packs (for max percent)
   const getEffectiveMaxData = (type, points) => {
-    const baseData = getMaxPercentData({
+    let result = getMaxPercentData({
       type,
       armyPoints: effectiveArmyPoints,
       points,
       armyComposition,
     });
-    const compData = getCompPackMaxPercentData({
-      type,
-      armyPoints: effectiveArmyPoints,
-      points,
-      compPack,
-      armyId: list.army,
-    });
-    if (!compData) return baseData;
-    if (!baseData) return compData;
-    // Use whichever limit is stricter (lower max points)
-    return compData.points < baseData.points ? compData : baseData;
+    for (const pack of activePacks) {
+      const compData = getCompPackMaxPercentData({
+        type,
+        armyPoints: effectiveArmyPoints,
+        points,
+        compPack: pack,
+        armyId: list.army,
+      });
+      if (!compData) continue;
+      if (!result || compData.points < result.points) {
+        result = compData;
+      }
+    }
+    return result;
   };
 
-  // Helper: use comp pack limit if stricter than base limit (for min percent)
+  // Helper: use strictest limit across base rules and all active packs (for min percent)
   const getEffectiveMinData = (type, points) => {
-    const baseData = getMinPercentData({
+    let result = getMinPercentData({
       type,
       armyPoints: effectiveArmyPoints,
       points,
       armyComposition,
     });
-    const compData = getCompPackMinPercentData({
-      type,
-      armyPoints: effectiveArmyPoints,
-      points,
-      compPack,
-      armyId: list.army,
-    });
-    if (!compData) return baseData;
-    if (!baseData) return compData;
+    for (const pack of activePacks) {
+      const compData = getCompPackMinPercentData({
+        type,
+        armyPoints: effectiveArmyPoints,
+        points,
+        compPack: pack,
+        armyId: list.army,
+      });
+      if (!compData) continue;
+      if (!result || compData.points > result.points) {
+        result = compData;
+      }
+    }
+    return result;
     // Use whichever limit is stricter (higher min points)
     return compData.points > baseData.points ? compData : baseData;
   };
@@ -285,7 +297,7 @@ export const Editor = ({ isMobile }) => {
               {`/ ${effectiveArmyPoints} ${intl.formatMessage({
                 id: "app.points",
               })}`}
-              {compPack &&
+              {activePacks.length > 0 &&
                 effectiveArmyPoints !== list.points &&
                 ` (${list.points}${effectiveArmyPoints > list.points ? "+" : ""}${effectiveArmyPoints - list.points})`}
             </>
@@ -327,12 +339,14 @@ export const Editor = ({ isMobile }) => {
           />
         )}
         <section>
-          {compPack && (
+          {activePacks.length > 0 && (
             <p className="unit__notes" style={{ marginBottom: "0.5rem" }}>
               <Icon symbol="shield" className="unit__notes-icon" />
               <FormattedMessage
                 id="editor.compPackActive"
-                values={{ name: compPack.name }}
+                values={{
+                  name: activePacks.map((p) => p.name).join(", "),
+                }}
               />
             </p>
           )}
@@ -460,7 +474,7 @@ export const Editor = ({ isMobile }) => {
 
             {errors
               .filter(({ section }) => section === "characters")
-              .map(({ message, name, diff, min, max, option, command, percent, rule, unitName }, index) => (
+              .map(({ message, name, diff, min, max, option, command, percent, rule, unitName, level }, index) => (
                 <ErrorMessage key={message + index} spaceBefore>
                   <FormattedMessage
                     id={message}
@@ -474,6 +488,7 @@ export const Editor = ({ isMobile }) => {
                       percent,
                       rule,
                       unitName,
+                      level,
                     }}
                   />
                 </ErrorMessage>
@@ -523,7 +538,7 @@ export const Editor = ({ isMobile }) => {
 
           {errors
             .filter(({ section }) => section === "core")
-            .map(({ message, name, min, max, diff, option, command, percent, rule, unitName }, index) => (
+            .map(({ message, name, min, max, diff, option, command, percent, rule, unitName, level }, index) => (
               <ErrorMessage key={message + index} spaceBefore>
                 <FormattedMessage
                   id={message}
@@ -537,6 +552,7 @@ export const Editor = ({ isMobile }) => {
                     percent,
                     rule,
                     unitName,
+                    level,
                   }}
                 />
               </ErrorMessage>
@@ -584,7 +600,7 @@ export const Editor = ({ isMobile }) => {
 
           {errors
             .filter(({ section }) => section === "special")
-            .map(({ message, name, diff, min, max, option, command, percent, rule, unitName }, index) => (
+            .map(({ message, name, diff, min, max, option, command, percent, rule, unitName, level }, index) => (
               <ErrorMessage key={message + index} spaceBefore>
                 <FormattedMessage
                   id={message}
@@ -598,6 +614,7 @@ export const Editor = ({ isMobile }) => {
                     percent,
                     rule,
                     unitName,
+                    level,
                   }}
                 />
               </ErrorMessage>
@@ -645,7 +662,7 @@ export const Editor = ({ isMobile }) => {
 
           {errors
             .filter(({ section }) => section === "rare")
-            .map(({ message, name, diff, min, max, option, command, percent, rule, unitName }, index) => (
+            .map(({ message, name, diff, min, max, option, command, percent, rule, unitName, level }, index) => (
               <ErrorMessage key={message + index} spaceBefore>
                 <FormattedMessage
                   id={message}
@@ -659,6 +676,7 @@ export const Editor = ({ isMobile }) => {
                     percent,
                     rule,
                     unitName,
+                    level,
                   }}
                 />
               </ErrorMessage>
@@ -713,7 +731,7 @@ export const Editor = ({ isMobile }) => {
 
               {errors
                 .filter(({ section }) => section === "mercenaries")
-                .map(({ message, name, diff, min, max, option, command, percent, rule, unitName }, index) => (
+                .map(({ message, name, diff, min, max, option, command, percent, rule, unitName, level }, index) => (
                   <ErrorMessage key={message + index} spaceBefore>
                     <FormattedMessage
                       id={message}
@@ -727,6 +745,7 @@ export const Editor = ({ isMobile }) => {
                         percent,
                         rule,
                         unitName,
+                        level,
                       }}
                     />
                   </ErrorMessage>
@@ -776,7 +795,7 @@ export const Editor = ({ isMobile }) => {
 
             {errors
               .filter(({ section }) => section === "allies")
-              .map(({ message, name, diff, min, max, option, command, percent, rule, unitName }, index) => (
+              .map(({ message, name, diff, min, max, option, command, percent, rule, unitName, level }, index) => (
                 <ErrorMessage key={message + index} spaceBefore>
                   <FormattedMessage
                     id={message}
@@ -790,6 +809,7 @@ export const Editor = ({ isMobile }) => {
                       percent,
                       rule,
                       unitName,
+                      level,
                     }}
                   />
                 </ErrorMessage>

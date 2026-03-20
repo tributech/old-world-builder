@@ -84,6 +84,17 @@ export const getCompPackById = (id) => {
 };
 
 /**
+ * Get any pack by ID — checks built-in packs first, then user packs.
+ * This is the unified lookup function.
+ */
+export const getAnyPackById = (id) => {
+  // Lazy import to avoid circular dependency
+  const { getBuiltInPack } =
+    require("./built-in-comp-packs");
+  return getBuiltInPack(id) || getCompPackById(id);
+};
+
+/**
  * Save a comp pack (create or update). Returns the saved pack.
  */
 export const saveCompPack = (compPack) => {
