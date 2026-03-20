@@ -6,11 +6,12 @@ import { Helmet } from "react-helmet-async";
 
 import { Header, Main } from "../../components/page";
 import { NumberInput } from "../../components/number-input";
-import { Select } from "../../components/select";
+import { MultiSelect } from "../../components/multi-select";
 import { Icon } from "../../components/icon";
 import { updateList } from "../../state/lists";
 import { useLanguage } from "../../utils/useLanguage";
 import { getCompPacks } from "../../utils/comp-packs";
+import { getAllBuiltInPacks } from "../../utils/built-in-comp-packs";
 
 import { nameMap } from "../magic";
 
@@ -23,29 +24,17 @@ export const EditList = ({ isMobile }) => {
   const { listId } = useParams();
   const { language } = useLanguage();
   const dispatch = useDispatch();
-  const compositionRules = [
-    {
-      id: "open-war",
-      name_en: intl.formatMessage({ id: "misc.open-war" }),
-    },
-    {
-      id: "grand-melee",
-      name_en: intl.formatMessage({ id: "misc.grand-melee" }),
-    },
-    {
-      id: "combined-arms",
-      name_en: intl.formatMessage({ id: "misc.combined-arms" }),
-    },
-    {
-      id: "grand-melee-combined-arms",
-      name_en: intl.formatMessage({ id: "misc.grand-melee-combined-arms" }),
-    },
-    {
-      id: "battle-march",
-      name_en: intl.formatMessage({ id: "misc.battle-march" }),
-    },
+  const allRuleOptions = [
+    ...getAllBuiltInPacks().map((p) => ({
+      id: p.id,
+      name: intl.formatMessage({ id: `misc.${p.id}` }),
+      builtIn: true,
+    })),
+    ...getCompPacks().map((p) => ({
+      id: p.id,
+      name: p.name,
+    })),
   ];
-  const compPacks = getCompPacks();
   const list = useSelector((state) =>
     state.lists.find(({ id }) => listId === id),
   );
@@ -74,19 +63,11 @@ export const EditList = ({ isMobile }) => {
       }),
     );
   };
-  const handleCompositionRuleChange = (value) => {
+  const handleCompositionRulesChange = (value) => {
     dispatch(
       updateList({
         listId,
-        compositionRule: value,
-      }),
-    );
-  };
-  const handleCompPackChange = (value) => {
-    dispatch(
-      updateList({
-        listId,
-        compPackId: value || "",
+        compositionRules: value,
       }),
     );
   };
@@ -177,39 +158,15 @@ export const EditList = ({ isMobile }) => {
           required
           interval={50}
         />
-        <label htmlFor="composition-rule">
+        <label>
           <FormattedMessage id="new.armyCompositionRule" />
         </label>
-        <Select
-          id="composition-rule"
-          options={compositionRules}
-          onChange={handleCompositionRuleChange}
-          selected={list.compositionRule || "open-war"}
-          spaceBottom
+        <MultiSelect
+          options={allRuleOptions}
+          selected={list.compositionRules || []}
+          onChange={handleCompositionRulesChange}
+          placeholder={intl.formatMessage({ id: "new.addCompositionRule" })}
         />
-        {compPacks.length > 0 && (
-          <>
-            <label htmlFor="comp-pack">
-              <FormattedMessage id="new.compPack" />
-            </label>
-            <Select
-              id="comp-pack"
-              options={[
-                {
-                  id: "",
-                  name_en: intl.formatMessage({ id: "new.compPackNone" }),
-                },
-                ...compPacks.map((pack) => ({
-                  id: pack.id,
-                  name_en: pack.name,
-                })),
-              ]}
-              onChange={handleCompPackChange}
-              selected={list.compPackId || ""}
-              spaceBottom
-            />
-          </>
-        )}
       </MainComponent>
     </>
   );

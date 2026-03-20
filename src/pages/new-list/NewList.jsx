@@ -7,6 +7,7 @@ import classNames from "classnames";
 import { Button } from "../../components/button";
 import { Header, Main } from "../../components/page";
 import { Select } from "../../components/select";
+import { MultiSelect } from "../../components/multi-select";
 import { Expandable } from "../../components/expandable";
 import { NumberInput } from "../../components/number-input";
 import { getGameSystems } from "../../utils/game-systems";
@@ -15,6 +16,7 @@ import { useLanguage } from "../../utils/useLanguage";
 import { setLists } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
 import { getCompPacks } from "../../utils/comp-packs";
+import { getAllBuiltInPacks } from "../../utils/built-in-comp-packs";
 import { RulesIndex, RuleWithIcon } from "../../components/rules-index";
 
 import { nameMap } from "../magic";
@@ -32,47 +34,34 @@ export const NewList = ({ isMobile }) => {
   const settings = useSelector((state) => state.settings);
   const [game, setGame] = useState("the-old-world");
   const [army, setArmy] = useState("empire-of-man");
-  const [compositionRule, setCompositionRule] = useState("open-war");
+  const [compositionRules, setCompositionRules] = useState([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [points, setPoints] = useState(2000);
   const [armyComposition, setArmyComposition] = useState("empire-of-man");
-  const [compPackId, setCompPackId] = useState("");
   const [redirect, setRedirect] = useState(null);
-  const compPacks = getCompPacks();
+  const allRuleOptions = [
+    ...getAllBuiltInPacks().map((p) => ({
+      id: p.id,
+      name: intl.formatMessage({ id: `misc.${p.id}` }),
+      builtIn: true,
+    })),
+    ...getCompPacks().map((p) => ({
+      id: p.id,
+      name: p.name,
+    })),
+  ];
   const armies = gameSystems
     .filter(({ id }) => id === game)[0]
     .armies.sort((a, b) => a.id.localeCompare(b.id));
   const journalArmies = armies.find(({ id }) => army === id)?.armyComposition;
-  const compositionRules = [
-    {
-      id: "open-war",
-      name_en: intl.formatMessage({ id: "misc.open-war" }),
-    },
-    {
-      id: "grand-melee",
-      name_en: intl.formatMessage({ id: "misc.grand-melee" }),
-    },
-    {
-      id: "combined-arms",
-      name_en: intl.formatMessage({ id: "misc.combined-arms" }),
-    },
-    {
-      id: "grand-melee-combined-arms",
-      name_en: intl.formatMessage({ id: "misc.grand-melee-combined-arms" }),
-    },
-    {
-      id: "battle-march",
-      name_en: intl.formatMessage({ id: "misc.battle-march" }),
-    },
-  ];
   const listsPoints = [
     ...lists
       .filter((list) => list.type !== "folder")
       .map((list) => list.points),
   ].reverse();
   const quickActions =
-    compositionRule === "battle-march"
+    compositionRules.includes("battle-march")
       ? [500, 600, 750]
       : lists.length
       ? [...new Set([...listsPoints, 500, 1000, 1500, 2000, 2500])].slice(0, 5)
@@ -101,8 +90,7 @@ export const NewList = ({ isMobile }) => {
       id: newId,
       url: armyData?.url,
       armyComposition,
-      compositionRule,
-      ...(compPackId ? { compPackId } : {}),
+      compositionRules,
     };
     const newLists = [newList, ...lists];
     const newSettings = { ...settings, lastChanged: new Date().toString() };
@@ -119,23 +107,20 @@ export const NewList = ({ isMobile }) => {
     setArmy(
       gameSystems.filter(({ id }) => id === event.target.value)[0].armies[0].id,
     );
-    setCompositionRule("open-war");
+    setCompositionRules([]);
   };
   const handleArmyChange = (value) => {
     setArmy(value);
     setArmyComposition(
       armies.find(({ id }) => value === id).armyComposition[0],
     );
-    setCompositionRule("open-war");
+    setCompositionRules([]);
   };
   const handleArcaneJournalChange = (value) => {
     setArmyComposition(value);
   };
-  const handleCompositionRuleChange = (value) => {
-    setCompositionRule(value);
-  };
-  const handleCompPackChange = (value) => {
-    setCompPackId(value || "");
+  const handleCompositionRulesChange = (value) => {
+    setCompositionRules(value);
   };
   const handlePointsChange = (event) => {
     setPoints(event.target.value);
@@ -241,59 +226,48 @@ export const NewList = ({ isMobile }) => {
             </>
           ) : null}
 
-          <label htmlFor="composition-rule">
+          <label>
             <FormattedMessage id="new.armyCompositionRule" />
           </label>
-          <Select
-            id="composition-rule"
-            options={compositionRules}
-            onChange={handleCompositionRuleChange}
-            selected={compositionRule}
-            spaceBottom
+          <MultiSelect
+            options={allRuleOptions}
+            selected={compositionRules}
+            onChange={handleCompositionRulesChange}
+            placeholder={intl.formatMessage({ id: "new.addCompositionRule" })}
           />
-          <Expandable
-            headline={
-              <span className="new-list__composition-info">
-                <FormattedMessage id="new.armyCompositionRuleInfo" />
-              </span>
-            }
-          >
-            <p className="new-list__composition-description">
-              <i>
-                <FormattedMessage
-                  id={`new.armyCompositionRuleDescription.${compositionRule}`}
-                />
-              </i>
-              <RuleWithIcon
-                name={compositionRule}
-                isDark
-                className="game-view__rule-icon"
-              />
-            </p>
-          </Expandable>
 
-          {compPacks.length > 0 && (
-            <>
-              <label htmlFor="comp-pack">
-                <FormattedMessage id="new.compPack" />
-              </label>
-              <Select
-                id="comp-pack"
-                options={[
-                  {
-                    id: "",
-                    name_en: intl.formatMessage({ id: "new.compPackNone" }),
-                  },
-                  ...compPacks.map((pack) => ({
-                    id: pack.id,
-                    name_en: pack.name,
-                  })),
-                ]}
-                onChange={handleCompPackChange}
-                selected={compPackId}
-                spaceBottom
-              />
-            </>
+          {compositionRules.some((id) =>
+            ["grand-melee", "combined-arms", "battle-march"].includes(id),
+          ) && (
+            <Expandable
+              headline={
+                <span className="new-list__composition-info">
+                  <FormattedMessage id="new.armyCompositionRuleInfo" />
+                </span>
+              }
+            >
+              {compositionRules
+                .filter((id) =>
+                  ["grand-melee", "combined-arms", "battle-march"].includes(id),
+                )
+                .map((ruleId) => (
+                  <p
+                    key={ruleId}
+                    className="new-list__composition-description"
+                  >
+                    <i>
+                      <FormattedMessage
+                        id={`new.armyCompositionRuleDescription.${ruleId}`}
+                      />
+                    </i>
+                    <RuleWithIcon
+                      name={ruleId}
+                      isDark
+                      className="game-view__rule-icon"
+                    />
+                  </p>
+                ))}
+            </Expandable>
           )}
 
           <label htmlFor="points">

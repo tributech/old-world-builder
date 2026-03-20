@@ -11,6 +11,7 @@ import {
   saveCompPack,
   deleteCompPack,
 } from "../../utils/comp-packs";
+import { getAllBuiltInPacks } from "../../utils/built-in-comp-packs";
 import { rulesMap } from "../../components/rules-index/rules-map";
 import { useLanguage } from "../../utils/useLanguage";
 import theOldWorld from "../../assets/the-old-world.json";
@@ -354,6 +355,36 @@ export const CompPacks = () => {
         {/* Pack list */}
         <section>
           <ul>
+            {getAllBuiltInPacks().map((pack) => (
+              <li className="list" key={pack.id}>
+                <div className="list__inner">
+                  <span>
+                    <span className="comp-packs__pack-name">
+                      {intl.formatMessage({
+                        id: `misc.${pack.id}`,
+                        defaultMessage: pack.name,
+                      })}
+                    </span>
+                    <br />
+                    <span className="comp-packs__id">
+                      {pack.id}{" "}
+                      <i>
+                        (<FormattedMessage id="compPacks.builtIn" />)
+                      </i>
+                    </span>
+                  </span>
+                  <span className="comp-packs__actions">
+                    <Button
+                      type="text"
+                      icon="download"
+                      color="dark"
+                      label={intl.formatMessage({ id: "compPacks.export" })}
+                      onClick={() => handleExport(pack)}
+                    />
+                  </span>
+                </div>
+              </li>
+            ))}
             {packs.map((pack) => (
               <li className="list" key={pack.id}>
                 <div className="list__inner">

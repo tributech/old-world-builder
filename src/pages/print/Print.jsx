@@ -333,9 +333,14 @@ export const Print = () => {
               <p className="print__subheader">
                 {game.name}, {armyName}
                 {armyCompositionName ? `, ${armyCompositionName}` : ""},{" "}
-                <FormattedMessage
-                  id={`misc.${list.compositionRule || "open-war"}`}
-                />
+                {(list.compositionRules || []).length > 0
+                  ? (list.compositionRules || []).map((id, i) => (
+                      <span key={id}>
+                        {i > 0 && ", "}
+                        <FormattedMessage id={`misc.${id}`} defaultMessage={id} />
+                      </span>
+                    ))
+                  : <FormattedMessage id="misc.open-war" />}
               </p>
             </>
           )}

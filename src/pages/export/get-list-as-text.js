@@ -212,9 +212,12 @@ export const getListAsText = ({
   const armyCompositionString = armyCompositionName
     ? `, ${armyCompositionName}`
     : "";
-  const compositionRuleString = intl.formatMessage({
-    id: `misc.${list.compositionRule || "open-war"}`,
-  });
+  const compositionRuleString =
+    (list.compositionRules || []).length > 0
+      ? (list.compositionRules || [])
+          .map((id) => intl.formatMessage({ id: `misc.${id}`, defaultMessage: id }))
+          .join(", ")
+      : intl.formatMessage({ id: "misc.open-war" });
   let listString = "";
 
   if (isSimpleList) {
