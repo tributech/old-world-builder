@@ -61,9 +61,6 @@ export const Header = ({
       window.location.href = "/";
     }
   };
-  const handleLogout = () => {
-    window.location.href = "owr://logout";
-  };
   const Component = isSection ? "section" : "header";
   const hasLocalChanges =
     new Date(settings.lastChanged).getTime() >
@@ -86,12 +83,6 @@ export const Header = ({
       to: "/settings",
       icon: "settings",
     },
-    // Show logout option only in mobile app context
-    ...(isMobileAppContext() ? [{
-      name: "Logout",
-      callback: handleLogout,
-      icon: "close",
-    }] : []),
   ];
   const navigation = hasMainNavigation ? navigationLinks : moreButton;
   const logout = () => {

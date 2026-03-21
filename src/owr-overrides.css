@@ -383,3 +383,16 @@ hr {
 :root.dark .header .button--text {
   color: #FFFFFF !important;
 }
+
+/* Pro upgrade dialog in dark mode */
+:root.dark .sync-upgrade__title {
+  color: #FFFFFF;
+}
+
+:root.dark .sync-upgrade__description {
+  color: #CCCCCC;
+}
+
+:root.dark .sync-upgrade__actions .button--text {
+  color: #AAAAAA;
+}
