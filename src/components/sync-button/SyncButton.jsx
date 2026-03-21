@@ -27,8 +27,21 @@ export const SyncButton = () => {
   useEffect(() => {
     checkAuth();
     const unsubscribe = subscribeSyncState(setSyncState);
-    return unsubscribe;
-  }, []);
+
+    // Expose sync trigger for native app bridge
+    window.__OWR_SYNC_TRIGGER__ = async () => {
+      const mergedLists = await forceSync();
+      if (mergedLists) {
+        dispatch(setLists(mergedLists));
+      }
+      return mergedLists;
+    };
+
+    return () => {
+      unsubscribe();
+      delete window.__OWR_SYNC_TRIGGER__;
+    };
+  }, [dispatch]);
 
   // Auto-show upgrade dialog once for users who aren't entitled
   useEffect(() => {
