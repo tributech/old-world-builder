@@ -1,4 +1,4 @@
-import { forwardRef, useCallback } from "react";
+import { forwardRef, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import classNames from "classnames";
 
@@ -7,11 +7,6 @@ import { useSwipeGesture } from "../../hooks/useSwipeGesture";
 
 import "./SwipeableListItem.css";
 
-/**
- * A list item with swipe-to-reveal actions (pin right, delete left).
- * Replaces ListItem for regular (non-folder) army lists on the home page.
- * Uses forwardRef so OrderableList's cloneElement can attach rbd drag props.
- */
 export const SwipeableListItem = forwardRef(
   (
     {
@@ -25,6 +20,7 @@ export const SwipeableListItem = forwardRef(
       isPinned,
       onSwipeLeft,
       onSwipeRight,
+      resetTrigger,
       ...attributes
     },
     ref
@@ -35,11 +31,20 @@ export const SwipeableListItem = forwardRef(
       [onSwipeRight]
     );
 
-    const { containerRef, contentStyle, swipeState } = useSwipeGesture({
+    const { containerRef, contentStyle, swipeState, reset } = useSwipeGesture({
       onSwipeLeft: stableSwipeLeft,
       onSwipeRight: stableSwipeRight,
       disabled,
     });
+
+    // Reset swipe only when resetTrigger becomes falsy (dialog closed)
+    const prevTrigger = useCallback(() => {}, []); // stable ref
+    useEffect(() => {
+      if (!resetTrigger) {
+        reset();
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [resetTrigger]);
 
     const mergedRef = (node) => {
       containerRef.current = node;
@@ -70,30 +75,32 @@ export const SwipeableListItem = forwardRef(
           className
         )}
       >
-        {/* Left action: Pin/Unpin (revealed on swipe right) */}
-        <div className="swipeable-list__action swipeable-list__action--pin">
-          <Icon symbol="pin" />
-          <span>{isPinned ? "Unpin" : "Pin"}</span>
-        </div>
+        {/* Only render the action matching the swipe direction */}
+        {(swipeState === "swiping-right" || swipeState === "open-right") && (
+          <div className="swipeable-list__action swipeable-list__action--pin">
+            <Icon symbol="pin" />
+            <span>{isPinned ? "Unpin" : "Pin"}</span>
+          </div>
+        )}
+        {(swipeState === "swiping-left" || swipeState === "open-left") && (
+          <div className="swipeable-list__action swipeable-list__action--delete">
+            <Icon symbol="delete" />
+            <span>Delete</span>
+          </div>
+        )}
 
-        {/* Slideable content */}
-        <Component
-          to={to}
-          className={classNames(
-            "list__inner",
-            "swipeable-list__content",
-            disabled && "list__inner--disabled"
-          )}
-          style={contentStyle}
-          onClick={handleClick}
-        >
-          {children}
-        </Component>
-
-        {/* Right action: Delete (revealed on swipe left) */}
-        <div className="swipeable-list__action swipeable-list__action--delete">
-          <Icon symbol="delete" />
-          <span>Delete</span>
+        {/* Slider — slides to reveal actions */}
+        <div className="swipeable-list__slider" style={contentStyle}>
+          <Component
+            to={to}
+            className={classNames(
+              "list__inner",
+              disabled && "list__inner--disabled"
+            )}
+            onClick={handleClick}
+          >
+            {children}
+          </Component>
         </div>
       </li>
     );

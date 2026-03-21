@@ -397,11 +397,6 @@ hr {
   color: #AAAAAA;
 }
 
-/* Swipeable list item - ensure content bg matches theme */
-:root.dark .swipeable-list__content {
-  background: var(--color-background, #2B2B2B);
-}
-
 /* Pin icon in dark mode */
 :root.dark .home__pin-icon {
   color: #FFD700;

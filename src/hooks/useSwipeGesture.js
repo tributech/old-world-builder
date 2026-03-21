@@ -5,17 +5,6 @@ const SWIPE_MAX = 80; // max reveal distance in px
 const SNAP_THRESHOLD = 40; // px to snap open
 const VELOCITY_THRESHOLD = 0.3; // px/ms for flick
 
-/**
- * Custom hook for horizontal swipe gestures on list items.
- * Detects horizontal vs vertical intent and intercepts touch events
- * in the capture phase to prevent react-beautiful-dnd from starting a drag.
- *
- * @param {Object} opts
- * @param {Function} opts.onSwipeLeft - called when left action confirmed
- * @param {Function} opts.onSwipeRight - called when right action confirmed
- * @param {boolean} opts.disabled - disable swipe (e.g., during drag)
- * @returns {{ containerRef, contentStyle, swipeState, reset }}
- */
 export const useSwipeGesture = ({
   onSwipeLeft,
   onSwipeRight,
@@ -26,13 +15,14 @@ export const useSwipeGesture = ({
     startX: 0,
     startY: 0,
     startTime: 0,
-    intent: "undecided", // 'undecided' | 'horizontal' | 'vertical'
+    intent: "undecided",
     currentOffset: 0,
   });
 
   const [offset, setOffset] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
-  const [swipeState, setSwipeState] = useState("idle"); // 'idle' | 'swiping' | 'open-left' | 'open-right'
+  // idle | swiping-left | swiping-right | open-left | open-right
+  const [swipeState, setSwipeState] = useState("idle");
 
   const reset = useCallback(() => {
     setTransitioning(true);
@@ -79,12 +69,10 @@ export const useSwipeGesture = ({
       if (t.intent === "horizontal") {
         e.preventDefault();
         e.stopPropagation();
-
-        // Clamp offset
         const clamped = Math.max(-SWIPE_MAX, Math.min(SWIPE_MAX, deltaX));
         t.currentOffset = clamped;
         setOffset(clamped);
-        setSwipeState("swiping");
+        setSwipeState(clamped >= 0 ? "swiping-right" : "swiping-left");
       }
     };
 
@@ -102,7 +90,7 @@ export const useSwipeGesture = ({
         velocity >= VELOCITY_THRESHOLD;
 
       if (exceeds && t.currentOffset > 0) {
-        // Swiped right → pin/unpin
+        // Swiped right → pin/unpin: snap open, fire, reset
         setTransitioning(true);
         setOffset(SWIPE_MAX);
         setSwipeState("open-right");
@@ -114,17 +102,15 @@ export const useSwipeGesture = ({
           setTimeout(() => setTransitioning(false), 300);
         }, 200);
       } else if (exceeds && t.currentOffset < 0) {
-        // Swiped left → delete
+        // Swiped left → delete: snap open and STAY open.
+        // Caller shows dialog; reset() is called externally when dialog closes.
         setTransitioning(true);
         setOffset(-SWIPE_MAX);
         setSwipeState("open-left");
         setTimeout(() => {
+          setTransitioning(false);
           onSwipeLeft?.();
-          setTransitioning(true);
-          setOffset(0);
-          setSwipeState("idle");
-          setTimeout(() => setTransitioning(false), 300);
-        }, 200);
+        }, 300);
       } else {
         // Snap back
         setTransitioning(true);

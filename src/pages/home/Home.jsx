@@ -864,6 +864,7 @@ export const Home = ({ isMobile }) => {
                   isPinned={!!pinned_at}
                   onSwipeLeft={() => handleSwipeDelete(id)}
                   onSwipeRight={() => handleTogglePin(id)}
+                  resetTrigger={dialogOpen}
                 >
                   {folder ? (
                     <Icon symbol="folder" className="home__folder-icon" />
