@@ -607,10 +607,6 @@ export const validateSinglePack = ({ list, compPack }) => {
  */
 export const validateCompPacks = ({ list }) => {
   const packIds = list.compositionRules || [];
-  // Fallback for old lists not yet migrated
-  if (packIds.length === 0 && list.compPackId) {
-    packIds.push(list.compPackId);
-  }
 
   const allErrors = [];
   let minNonChar = null;
@@ -636,12 +632,6 @@ export const validateCompPacks = ({ list }) => {
   }
 
   return { errors: allErrors, minNonCharacterUnits: minNonChar };
-};
-
-// Keep old single-pack function for backward compat during transition
-export const validateCompPack = ({ list }) => {
-  const { errors } = validateCompPacks({ list });
-  return errors;
 };
 
 // ─── Editor helpers ───────────────────────────────────────────────────────

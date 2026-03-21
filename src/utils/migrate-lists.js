@@ -24,8 +24,9 @@ export const migrateList = (list) => {
     rules.push(list.compPackId);
   }
 
+  const { compositionRule, compPackId, ...rest } = list;
   return {
-    ...list,
+    ...rest,
     compositionRules: rules,
   };
 };
