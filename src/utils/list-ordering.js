@@ -109,6 +109,63 @@ export const ensureRanks = (lists) => {
 };
 
 /**
+ * Float pinned items to the top within their context group.
+ * Runs after sortByRank and any name/faction sorting.
+ *
+ * Within each group (top-level or folder contents), pinned items
+ * sort to the top, ordered by pinned_at ascending (oldest pin first).
+ * Unpinned items keep their current relative order.
+ * Folders themselves are never reordered by this.
+ */
+export const sortWithPins = (lists) => {
+  const result = [];
+  let i = 0;
+
+  while (i < lists.length) {
+    const item = lists[i];
+
+    if (item.type === "folder") {
+      result.push(item);
+      i++;
+      // Collect folder contents
+      const contents = [];
+      while (i < lists.length && lists[i].folder === item.id) {
+        contents.push(lists[i]);
+        i++;
+      }
+      const pinned = contents
+        .filter((c) => c.pinned_at)
+        .sort((a, b) => new Date(a.pinned_at) - new Date(b.pinned_at));
+      const unpinned = contents.filter((c) => !c.pinned_at);
+      result.push(...pinned, ...unpinned);
+    } else if (!item.folder) {
+      // Top-level non-folder items - collect consecutive group
+      const group = [item];
+      i++;
+      while (
+        i < lists.length &&
+        lists[i].type !== "folder" &&
+        !lists[i].folder
+      ) {
+        group.push(lists[i]);
+        i++;
+      }
+      const pinned = group
+        .filter((c) => c.pinned_at)
+        .sort((a, b) => new Date(a.pinned_at) - new Date(b.pinned_at));
+      const unpinned = group.filter((c) => !c.pinned_at);
+      result.push(...pinned, ...unpinned);
+    } else {
+      // Orphaned item (folder reference but folder not found) - pass through
+      result.push(item);
+      i++;
+    }
+  }
+
+  return result;
+};
+
+/**
  * Reorder a list item - generate rank between neighbors at destination.
  *
  * @param {Array} lists - Current lists (already sorted by rank)

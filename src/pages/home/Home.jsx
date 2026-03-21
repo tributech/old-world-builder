@@ -37,7 +37,8 @@ import cathay from "../../assets/army-icons/cathay.svg";
 import renegade from "../../assets/army-icons/renegade.svg";
 import { useLanguage } from "../../utils/useLanguage";
 import { updateLocalList, updateListsFolder } from "../../utils/owr-list";
-import { sortByRank, ensureRanks, reorderList, reorderFolder } from "../../utils/list-ordering";
+import { sortByRank, sortWithPins, ensureRanks, reorderList, reorderFolder } from "../../utils/list-ordering";
+import { SwipeableListItem } from "../../components/swipeable-list-item";
 import { generateRank } from "../../utils/lexorank";
 import { pushToOWR, checkAuth, owrApiFetch } from "../../utils/owr-sync";
 import { setItem } from "../../utils/storage";
@@ -172,6 +173,9 @@ export const Home = ({ isMobile }) => {
     default:
       break;
   }
+
+  // Float pinned items to the top within their context group
+  lists = sortWithPins(lists);
 
   const location = useLocation();
   const { language } = useLanguage();
@@ -460,6 +464,39 @@ export const Home = ({ isMobile }) => {
   const handleDeleteOptionChange = (option) => {
     setActiveDeleteOption(option);
   };
+  const handleTogglePin = (listId) => {
+    const list = rawLists.find((l) => l.id === listId);
+    if (!list) return;
+
+    const newPinnedAt = list.pinned_at ? null : new Date().toISOString();
+    const newLists = rawLists.map((l) =>
+      l.id === listId
+        ? { ...l, pinned_at: newPinnedAt, updated_at: new Date().toISOString() }
+        : l
+    );
+
+    setItem("owb.lists", JSON.stringify(newLists));
+    pushToOWR(newLists);
+    dispatch(setLists(newLists));
+  };
+  const handleSwipeDelete = (listId) => {
+    setActiveMenu(listId);
+    setDialogOpen("delete-list");
+  };
+  const handleDeleteListConfirm = () => {
+    let newLists = lists.map((list) =>
+      list.id === activeMenu
+        ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
+        : list
+    );
+
+    setDialogOpen(null);
+    setActiveMenu(null);
+
+    dispatch(setLists(newLists.filter((l) => !l._deleted)));
+    setItem("owb.lists", JSON.stringify(newLists));
+    pushToOWR(newLists);
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -575,6 +612,43 @@ export const Home = ({ isMobile }) => {
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      <Dialog
+        open={dialogOpen === "delete-list"}
+        onClose={() => setDialogOpen(null)}
+      >
+        <p className="home__delete-text">
+          <FormattedMessage
+            id="home.confirmDeleteList"
+            values={{
+              name: (
+                <b>
+                  {lists.find((l) => l.id === activeMenu)?.name || ""}
+                </b>
+              ),
+            }}
+          />
+        </p>
+        <div className="editor__delete-dialog">
+          <Button
+            type="text"
+            onClick={handleCancelClick}
+            icon="close"
+            spaceTop
+            color="dark"
+          >
+            <FormattedMessage id="misc.cancel" />
+          </Button>
+          <Button
+            type="primary"
+            icon="delete"
+            spaceTop
+            onClick={handleDeleteListConfirm}
+          >
+            <FormattedMessage id="misc.delete" />
+          </Button>
+        </div>
       </Dialog>
 
       <Dialog open={dialogOpen === "new"} onClose={() => setDialogOpen(null)}>
@@ -696,6 +770,7 @@ export const Home = ({ isMobile }) => {
               type,
               folder,
               open,
+              pinned_at,
               ...list
             }) =>
               type === "folder" ? (
@@ -774,7 +849,7 @@ export const Home = ({ isMobile }) => {
                   )}
                 </ListItem>
               ) : (
-                <ListItem
+                <SwipeableListItem
                   key={id}
                   to={`/editor/${id}`}
                   active={location.pathname.includes(id)}
@@ -786,10 +861,16 @@ export const Home = ({ isMobile }) => {
                   className={classNames(
                     listsInFolder.length > 0 && "home__list--dragging",
                   )}
+                  isPinned={!!pinned_at}
+                  onSwipeLeft={() => handleSwipeDelete(id)}
+                  onSwipeRight={() => handleTogglePin(id)}
                 >
                   {folder ? (
                     <Icon symbol="folder" className="home__folder-icon" />
                   ) : null}
+                  {pinned_at && (
+                    <Icon symbol="pin" className="home__pin-icon" />
+                  )}
                   <span className="home__list-item">
                     <h2 className="home__headline">{name}</h2>
                     {description && (
@@ -827,7 +908,7 @@ export const Home = ({ isMobile }) => {
                       </a>
                     )}
                   </div>
-                </ListItem>
+                </SwipeableListItem>
               ),
           )}
         </OrderableList>

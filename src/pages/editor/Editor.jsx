@@ -20,8 +20,10 @@ import { useLanguage } from "../../utils/useLanguage";
 import { validateList } from "../../utils/validation";
 import { removeFromLocalList, updateLocalList } from "../../utils/owr-list";
 import { getGameSystems } from "../../utils/game-systems";
-import { deleteList, moveUnit } from "../../state/lists";
+import { deleteList, setLists, moveUnit } from "../../state/lists";
 import { setErrors } from "../../state/errors";
+import { pushToOWR } from "../../utils/owr-sync";
+import { setItem } from "../../utils/storage";
 
 import "./Editor.css";
 
@@ -183,6 +185,23 @@ export const Editor = ({ isMobile }) => {
       }),
       icon: "duplicate",
       to: `/editor/${listId}/duplicate`,
+    },
+    {
+      name: list?.pinned_at ? intl.formatMessage({ id: "misc.unpin" }) : intl.formatMessage({ id: "misc.pin" }),
+      icon: "pin",
+      callback: () => {
+        if (!list) return;
+        const rawLists = JSON.parse(localStorage.getItem("owb.lists") || "[]");
+        const newPinnedAt = list.pinned_at ? null : new Date().toISOString();
+        const newLists = rawLists.map((l) =>
+          l.id === listId
+            ? { ...l, pinned_at: newPinnedAt, updated_at: new Date().toISOString() }
+            : l
+        );
+        setItem("owb.lists", JSON.stringify(newLists));
+        pushToOWR(newLists);
+        dispatch(setLists(newLists));
+      },
     },
     {
       name: intl.formatMessage({

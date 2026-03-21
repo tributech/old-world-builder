@@ -115,6 +115,16 @@
   margin-right: 0.5rem;
 }
 
+.home__pin-icon {
+  margin-right: 0.25rem;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #DAA520;
+  stroke: #DAA520;
+  fill: #DAA520;
+}
+
 .home__header {
   margin-bottom: 0;
 }
