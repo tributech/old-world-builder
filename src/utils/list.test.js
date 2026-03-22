@@ -73,20 +73,31 @@ describe("updateListsFolder", () => {
     });
   });
 
-  describe("new folder at beginning of array (current buggy behavior)", () => {
-    test("SHOULD FAIL: incorrectly captures folder:null lists", () => {
+  describe("new folder at beginning of array", () => {
+    test("respects explicit folder:null — does not capture top-level lists", () => {
       const list1 = makeList("list-1", "List 1", null);
       const list2 = makeList("list-2", "List 2", null);
       const newFolder = makeFolder("folder-new", "New Folder");
 
-      // New folder prepended (current buggy behavior)
       const input = [newFolder, list1, list2];
       const result = updateListsFolder(input);
 
-      // This test documents the bug - it will pass with current code
-      // but demonstrates incorrect behavior
-      expect(result[1].folder).toBe("folder-new"); // BUG: should be null
-      expect(result[2].folder).toBe("folder-new"); // BUG: should be null
+      // Lists with explicit folder:null should stay top-level
+      expect(result[1].folder).toBeNull();
+      expect(result[2].folder).toBeNull();
+    });
+  });
+
+  describe("legacy items without folder property", () => {
+    test("assigns folder from position for items with no folder property", () => {
+      const legacyList = { id: "legacy-1", name: "Legacy", type: "list" }; // no folder property
+      const folder = makeFolder("folder-1", "Folder 1");
+
+      const input = [folder, legacyList];
+      const result = updateListsFolder(input);
+
+      // Legacy item (no folder property) should be assigned by position
+      expect(result[1].folder).toBe("folder-1");
     });
   });
 });

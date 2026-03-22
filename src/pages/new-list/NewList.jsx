@@ -100,6 +100,7 @@ export const NewList = ({ isMobile }) => {
       url: armyData?.url,
       armyComposition,
       compositionRule,
+      folder: null,
     };
     const newLists = [newList, ...lists];
     const newSettings = { ...settings, lastChanged: new Date().toString() };

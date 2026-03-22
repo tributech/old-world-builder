@@ -94,8 +94,11 @@ export const ensureRanks = (lists) => {
     const newRank = generateRank(lastRank, nextWithRank?.rank);
     lastRank = newRank;
 
-    // For legacy items without rank, also set folder from position
-    const newFolder = list.type === "folder" ? list.folder : currentFolder;
+    // For legacy items without rank, set folder from position only if
+    // they have no explicit folder property (truly legacy migration).
+    const newFolder = list.type === "folder"
+      ? list.folder
+      : (list.folder !== undefined ? list.folder : currentFolder);
 
     return {
       ...list,

@@ -62,6 +62,12 @@ export const updateListsFolder = (lists) => {
       return list;
     }
 
+    // Respect explicit folder assignment — only use positional logic
+    // for items that have no folder property at all (legacy migration).
+    if (list.folder !== undefined) {
+      return list;
+    }
+
     const newFolder =
       latestFolderIndex !== null ? folderIndexes[latestFolderIndex] : null;
 
