@@ -1,3 +1,4 @@
+// OWR: superseded by owr-list.js — kept to minimize upstream diff
 export const updateLocalList = (updatedList) => {
   const localLists = JSON.parse(localStorage.getItem("owb.lists"));
   const updatedLists =
@@ -16,6 +17,7 @@ export const updateLocalList = (updatedList) => {
   } catch (error) {}
 };
 
+// OWR: superseded by owr-list.js — kept to minimize upstream diff
 export const removeFromLocalList = (listId) => {
   const localLists = JSON.parse(localStorage.getItem("owb.lists"));
   const updatedLists = localLists.filter(({ id }) => listId !== id);
@@ -42,10 +44,27 @@ export const updateListsFolder = (lists) => {
       return list;
     }
 
+    // Respect explicit folder assignment — only use positional logic
+    // for items that have no folder property at all (legacy migration).
+    if (list.folder !== undefined) {
+      return list;
+    }
+
+    const newFolder =
+      latestFolderIndex !== null ? folderIndexes[latestFolderIndex] : null;
+
+    // Update timestamp if folder actually changed (for sync)
+    if (list.folder !== newFolder) {
+      return {
+        ...list,
+        folder: newFolder,
+        updated_at: new Date().toISOString(),
+      };
+    }
+
     return {
       ...list,
-      folder:
-        latestFolderIndex !== null ? folderIndexes[latestFolderIndex] : null,
+      folder: newFolder,
     };
   });
 
