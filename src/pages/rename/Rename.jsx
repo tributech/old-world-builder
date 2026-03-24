@@ -6,6 +6,7 @@ import { Helmet } from "react-helmet-async";
 
 import { Header, Main } from "../../components/page";
 import { editUnit } from "../../state/lists";
+import { updateLocalList } from "../../utils/owr-list";
 import { useLanguage } from "../../utils/useLanguage";
 
 import "./Rename.css";
@@ -62,7 +63,7 @@ export const Rename = ({ isMobile }) => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list?.name}`}</title>
+        <title>{`Battle Builder | ${list?.name}`}</title>
       </Helmet>
 
       {isMobile && (

@@ -18,6 +18,7 @@ import { RulesIndex, RuleWithIcon } from "../../components/rules-index";
 import { setItems } from "../../state/items";
 import { editUnit } from "../../state/lists";
 import { useLanguage } from "../../utils/useLanguage";
+import { updateLocalList } from "../../utils/owr-list";
 import { equalsOrIncludes, namesForSpread } from "../../utils/string";
 import { getUnitName, getUnitOptionNotes } from "../../utils/unit";
 import { getGameSystems } from "../../utils/game-systems";
@@ -643,7 +644,7 @@ export const Magic = ({ isMobile }) => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list?.name}`}</title>
+        <title>{`Battle Builder | ${list?.name}`}</title>
       </Helmet>
 
       {isMobile && (

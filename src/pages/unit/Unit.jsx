@@ -29,6 +29,7 @@ import { nameMap } from "../magic";
 import { editUnit, removeUnit, duplicateUnit } from "../../state/lists";
 import { setArmy } from "../../state/army";
 import { useLanguage } from "../../utils/useLanguage";
+import { updateLocalList } from "../../utils/owr-list";
 import { getRandomId } from "../../utils/id";
 import { getArmyData } from "../../utils/army";
 import { namesForSpread } from "../../utils/string";
@@ -610,7 +611,7 @@ export const Unit = ({ isMobile, previewData = {} }) => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list?.name}`}</title>
+        <title>{`Battle Builder | ${list?.name}`}</title>
       </Helmet>
 
       {isMobile && (

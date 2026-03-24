@@ -244,6 +244,11 @@ input[type="radio"] {
   background: #D0D0D0 !important;
 }
 
+/* Fix rules-eye icon position for our bleed-to-edge layout */
+.add__rules-icon {
+  margin-right: 0 !important;
+}
+
 /* Header links should stay light, no underline */
 .header a,
 .header__name-link,
@@ -343,11 +348,16 @@ hr {
   border-color: #FFD700;
 }
 
+/* Make list dividers visible in dark mode */
+:root.dark .list__inner {
+  border-bottom-color: #333333 !important;
+}
+
 /* Dark mode list card hover — visible highlight */
 :root.dark .list__inner:hover::before,
 :root.dark .list__inner:focus::before,
 :root.dark .list__inner:active::before {
-  background: #2A2A2A !important;
+  background: #1E1E1E !important;
 }
 
 /* Dark mode folder — lighter than cards (reverse of light mode) */
@@ -420,6 +430,12 @@ hr {
 
 :root.dark ::-webkit-scrollbar-thumb:hover {
   background: #555555;
+}
+
+/* Dark mode primary button hover — go darker, not lighter */
+:root.dark .button--primary:hover,
+:root.dark .button--cta:hover {
+  background-color: #111111 !important;
 }
 
 /* Header buttons in dark mode */

@@ -9,6 +9,7 @@ import { NumberInput } from "../../components/number-input";
 import { Select } from "../../components/select";
 import { Icon } from "../../components/icon";
 import { updateList } from "../../state/lists";
+import { updateLocalList } from "../../utils/owr-list";
 import { useLanguage } from "../../utils/useLanguage";
 
 import { nameMap } from "../magic";
@@ -102,7 +103,7 @@ export const EditList = ({ isMobile }) => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list?.name}`}</title>
+        <title>{`Battle Builder | ${list?.name}`}</title>
       </Helmet>
 
       {isMobile && (
