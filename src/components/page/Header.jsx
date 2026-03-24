@@ -8,7 +8,10 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { Button } from "../../components/button";
 import { Icon } from "../../components/icon";
 import { Dialog } from "../../components/dialog";
-import { updateLocalList } from "../../utils/list";
+import { SyncButton } from "../../components/sync-button";
+import { isMobileAppContext } from "../../utils/owr-sync";
+import { updateLocalList, hasMeaningfulListChange } from "../../utils/owr-list";
+import { getItem } from "../../utils/storage";
 import {
   login,
   syncLists,
@@ -18,6 +21,7 @@ import {
 import { updateSetting } from "../../state/settings";
 import { updateLogin } from "../../state/login";
 
+import owrLogoWhite from "../../assets/owr-logo-white.svg";
 import "./Header.css";
 
 export const Header = ({
@@ -33,11 +37,13 @@ export const Header = ({
   hasMainNavigation,
   navigationIcon,
   hasHomeButton,
+  hasOWRButton,
   filters,
 }) => {
   const intl = useIntl();
   const location = useLocation();
   const [showMenu, setShowMenu] = useState(false);
+  const isMobile = isMobileAppContext();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const dispatch = useDispatch();
   const { listId, unitId } = useParams();
@@ -47,6 +53,13 @@ export const Header = ({
     state.lists.find(({ id }) => listId === id),
   );
   const settings = useSelector((state) => state.settings);
+  const handleBackToOWR = () => {
+    if (window.opener && !window.opener.closed) {
+      window.open('', 'owr-main');
+    } else {
+      window.location.href = "/";
+    }
+  };
   const Component = isSection ? "section" : "header";
   const hasLocalChanges =
     new Date(settings.lastChanged).getTime() >
@@ -64,24 +77,10 @@ export const Header = ({
     },
     {
       name: intl.formatMessage({
-        id: "footer.help",
-      }),
-      to: "/help",
-      icon: "help",
-    },
-    {
-      name: intl.formatMessage({
         id: "footer.settings",
       }),
       to: "/settings",
       icon: "settings",
-    },
-    {
-      name: intl.formatMessage({
-        id: "footer.changelog",
-      }),
-      to: "/changelog",
-      icon: "news",
     },
     {
       name: intl.formatMessage({
@@ -104,14 +103,11 @@ export const Header = ({
   }, [location.pathname]);
 
   useEffect(() => {
-    const updatedList = JSON.stringify(list);
-    const localList = JSON.stringify(
-      JSON.parse(localStorage.getItem("owb.lists") || "[]").find(
-        (localList) => localList.id === listId,
-      ),
+    const localList = JSON.parse(getItem("owb.lists") || "[]").find(
+      (localList) => localList.id === listId,
     );
 
-    if (list && updatedList !== localList) {
+    if (list && hasMeaningfulListChange(localList, list)) {
       updateLocalList(list);
 
       const newSettings = { ...settings, lastChanged: new Date().toString() };
@@ -152,6 +148,7 @@ export const Header = ({
       <Component
         className={classNames(
           isSection ? "column-header" : "header",
+          isMobile && "header--webview",
           className,
         )}
       >
@@ -170,7 +167,16 @@ export const Header = ({
           />
         ) : (
           <>
-            {hasHomeButton && (
+            {hasOWRButton && !isMobile && (
+              <Button
+                type="text"
+                onClick={handleBackToOWR}
+                label="Back to OWR"
+                color="light"
+                icon="back"
+              />
+            )}
+            {hasHomeButton && !hasOWRButton && (
               <Button
                 type="text"
                 to="/"
@@ -180,7 +186,7 @@ export const Header = ({
                 showLabelRight
               />
             )}
-            {!hasHomeButton && !isPreview && (
+            {!hasHomeButton && !hasOWRButton && !isPreview && (
               <Button
                 type="text"
                 onClick={() => {
@@ -211,11 +217,17 @@ export const Header = ({
         <div className="header__text">
           {headline && (
             <>
-              {headline === "Old World Builder" ? (
+              {headline === "Battle Builder" ? (
                 <h1 className="header__name">
-                  <Link className="header__name-link" to="/">
+                  <Link className="header__name-link header__brand" to="/">
+                    <img
+                      src={owrLogoWhite}
+                      alt="OWR"
+                      className="header__brand-logo"
+                    />
                     {headline}
                   </Link>
+                  <SyncButton />
                   {!isSection && (
                     <>
                       {loggedIn ? (
@@ -307,6 +319,10 @@ export const Header = ({
             </p>
           )}
         </div>
+        {/* Show sync button on sub-pages (editor, unit, etc.) */}
+        {headline !== "Battle Builder" && ((hasMainNavigation && !hasHomeButton) || (to && !isSection)) && (
+          <SyncButton />
+        )}
         {navigation ? (
           <Button
             type="text"
@@ -382,10 +398,6 @@ export const Header = ({
               !hasMainNavigation && "header__more--secondary-navigation",
             )}
           >
-            {/*
-             * Can't add <InstallPwa /> here, as it needs to be rendered
-             * on page load to catch the beforeinstallprompt event.
-             */}
             {filters.map(({ callback, name, description, id, checked }) => (
               <li key={id}>
                 <div className="checkbox header__checkbox">
@@ -473,5 +485,6 @@ Header.propTypes = {
   hasPointsError: PropTypes.bool,
   hasMainNavigation: PropTypes.bool,
   hasHomeButton: PropTypes.bool,
+  hasOWRButton: PropTypes.bool,
   navigationIcon: PropTypes.string,
 };

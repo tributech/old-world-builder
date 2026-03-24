@@ -47,14 +47,14 @@ export const Settings = () => {
     <>
       <Helmet>
         <title>
-          {`Old World Builder | ${intl.formatMessage({
+          {`Battle Builder | ${intl.formatMessage({
             id: "footer.settings",
           })}`}
         </title>
         <link rel="canonical" href="https://old-world-builder.com/settings" />
       </Helmet>
 
-      <Header headline="Old World Builder" hasMainNavigation hasHomeButton />
+      <Header headline="Battle Builder" hasMainNavigation hasHomeButton />
 
       <Main compact>
         <h2 className="page-headline">

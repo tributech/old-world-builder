@@ -19,14 +19,13 @@ export const Changelog = () => {
     <>
       <Helmet>
         <title>
-          {`Old World Builder | ${intl.formatMessage({
+          {`Battle Builder | ${intl.formatMessage({
             id: "footer.changelog",
           })}`}
         </title>
-        <link rel="canonical" href="https://old-world-builder.com/changelog" />
       </Helmet>
 
-      <Header headline="Old World Builder" hasMainNavigation hasHomeButton />
+      <Header headline="Battle Builder" hasMainNavigation hasHomeButton />
 
       <Main compact className="changelog">
         <h2 className="page-headline">

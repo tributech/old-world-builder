@@ -26,6 +26,7 @@ import { getStats, getUnitName } from "../../utils/unit";
 import { editUnit } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
 import { getGameSystems } from "../../utils/game-systems";
+import { setItem } from "../../utils/storage";
 
 import "./GameView.css";
 
@@ -64,7 +65,7 @@ export const GameView = () => {
     );
   };
   const updateLocalSettings = (newSettings) => {
-    localStorage.setItem("owb.settings", JSON.stringify(newSettings));
+    setItem("owb.settings", JSON.stringify(newSettings));
   };
 
   if (!list) {
@@ -615,7 +616,7 @@ export const GameView = () => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list.name}`}</title>
+        <title>{`Battle Builder | ${list.name}`}</title>
       </Helmet>
 
       <RulesIndex />
