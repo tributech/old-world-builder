@@ -1,14 +1,11 @@
 {
-  "name": "old-world-builder",
-  "version": "2.0.23",
+  "name": "battle-builder",
+  "version": "2.0.23.1",
   "author": "Nico Thiebes",
-  "homepage": "https://old-world-builder.com",
+  "homepage": "/builder",
   "private": true,
   "dependencies": {
     "@reduxjs/toolkit": "^1.7.2",
-    "@sentry/cli": "^2.25.0",
-    "@sentry/react": "^7.93.0",
-    "@sentry/vite-plugin": "^5.1.1",
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
     "@testing-library/user-event": "^12.1.10",
@@ -30,7 +27,6 @@
     "workbox-cacheable-response": "^5.1.4",
     "workbox-core": "^5.1.4",
     "workbox-expiration": "^5.1.4",
-    "workbox-google-analytics": "^5.1.4",
     "workbox-navigation-preload": "^5.1.4",
     "workbox-precaching": "^5.1.4",
     "workbox-range-requests": "^5.1.4",
@@ -55,8 +51,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "predeploy": "yarn test --run && yarn build",
-    "deploy": "gh-pages -d build",
-    "sentry:sourcemaps": "sentry-cli sourcemaps inject --org booky --project old-world-builder ./build && sentry-cli sourcemaps upload --org booky --project old-world-builder ./build"
+    "deploy": "gh-pages -d build"
   },
   "resolutions": {
     "vite": "^7.3.1"
@@ -72,5 +67,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "packageManager": "yarn@4.13.0+sha512.5c20ba010c99815433e5c8453112165e673f1c7948d8d2b267f4b5e52097538658388ebc9f9580656d9b75c5cc996f990f611f99304a2197d4c56d21eea370e7"
 }
