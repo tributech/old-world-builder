@@ -18,9 +18,12 @@ import { throttle } from "../../utils/throttle";
 import { getUnitPoints, getPoints, getAllPoints } from "../../utils/points";
 import { useLanguage } from "../../utils/useLanguage";
 import { validateList } from "../../utils/validation";
-import { removeFromLocalList } from "../../utils/list";
-import { deleteList, moveUnit } from "../../state/lists";
+import { removeFromLocalList, updateLocalList } from "../../utils/owr-list";
+import { getGameSystems } from "../../utils/game-systems";
+import { deleteList, setLists, moveUnit } from "../../state/lists";
 import { setErrors } from "../../state/errors";
+import { pushToOWR } from "../../utils/owr-sync";
+import { getItem, setItem } from "../../utils/storage";
 
 import "./Editor.css";
 
@@ -182,6 +185,23 @@ export const Editor = ({ isMobile }) => {
       to: `/editor/${listId}/duplicate`,
     },
     {
+      name: list?.pinned_at ? intl.formatMessage({ id: "misc.unpin" }) : intl.formatMessage({ id: "misc.pin" }),
+      icon: "pin",
+      callback: () => {
+        if (!list) return;
+        const rawLists = JSON.parse(getItem("owb.lists") || "[]");
+        const newPinnedAt = list.pinned_at ? null : new Date().toISOString();
+        const newLists = rawLists.map((l) =>
+          l.id === listId
+            ? { ...l, pinned_at: newPinnedAt, updated_at: new Date().toISOString() }
+            : l
+        );
+        setItem("owb.lists", JSON.stringify(newLists));
+        pushToOWR(newLists);
+        dispatch(setLists(newLists));
+      },
+    },
+    {
       name: intl.formatMessage({
         id: "misc.delete",
       }),
@@ -214,7 +234,7 @@ export const Editor = ({ isMobile }) => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list?.name}`}</title>
+        <title>{`Battle Builder | ${list?.name}`}</title>
       </Helmet>
 
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)}>

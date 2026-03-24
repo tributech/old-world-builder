@@ -1,0 +1,61 @@
+/* Override upstream .list display:flex so the slider
+   is a normal block child that contains list__inner.
+   :not(.list--hidden) preserves folder collapse (display:none). */
+.swipeable-list.list:not(.list--hidden) {
+  display: block;
+  overflow: hidden;
+  position: relative;
+}
+
+/* The slider wraps list__inner and receives translateX.
+   list__inner inside keeps ALL its upstream styles. */
+.swipeable-list__slider {
+  position: relative;
+  z-index: 1;
+  background-color: var(--color-list);
+}
+
+/* Action buttons sit behind the slider, absolutely positioned.
+   Hidden by default — shown only when swiping in their direction. */
+.swipeable-list__action {
+  position: absolute;
+  top: 0;
+  bottom: 2px; /* match list__inner border-bottom height */
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  gap: 0.25rem;
+  user-select: none;
+  z-index: 0;
+}
+
+.swipeable-list__action .icon {
+  width: 20px;
+  height: 20px;
+  stroke: #fff;
+  fill: #fff;
+}
+
+.swipeable-list__action--pin {
+  left: 0;
+  background: #DAA520;
+}
+
+.swipeable-list__action--delete {
+  right: 0;
+  background: #8B0000;
+}
+
+/* Show only the relevant action based on swipe direction */
+[data-swiping="right"] .swipeable-list__action--pin {
+  display: flex;
+}
+
+[data-swiping="left"] .swipeable-list__action--delete {
+  display: flex;
+}

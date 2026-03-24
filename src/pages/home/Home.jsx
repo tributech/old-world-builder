@@ -12,10 +12,11 @@ import { ListItem, OrderableList } from "../../components/list";
 import { Header, Main } from "../../components/page";
 import { Dialog } from "../../components/dialog";
 import { getAllPoints } from "../../utils/points";
-import { useTimezone } from "../../utils/useTimezone";
+
 import { setArmy } from "../../state/army";
 import { setItems } from "../../state/items";
 import owb from "../../assets/army-icons/owb.svg";
+import owrLogo from "../../assets/owr-logo-black.svg";
 import theEmpire from "../../assets/army-icons/the-empire.svg";
 import dwarfs from "../../assets/army-icons/dwarfs.svg";
 import greenskins from "../../assets/army-icons/greenskins.svg";
@@ -34,13 +35,13 @@ import chaosDwarfs from "../../assets/army-icons/chaos-dwarfs.svg";
 import bretonnia from "../../assets/army-icons/bretonnia.svg";
 import cathay from "../../assets/army-icons/cathay.svg";
 import renegade from "../../assets/army-icons/renegade.svg";
-import forg3dBanner from "../../assets/forg3d.jpg";
-import fantasyweltDe from "../../assets/fantasywelt_de.jpg";
-import fantasyweltEn from "../../assets/fantasywelt_en.jpg";
-import mwgForge from "../../assets/mwg-forge.gif";
-import { swap } from "../../utils/collection";
 import { useLanguage } from "../../utils/useLanguage";
-import { updateLocalList, updateListsFolder } from "../../utils/list";
+import { updateLocalList, updateListsFolder } from "../../utils/owr-list";
+import { sortByRank, sortWithPins, ensureRanks, reorderList, reorderFolder } from "../../utils/list-ordering";
+import { SwipeableListItem } from "../../components/swipeable-list-item";
+import { generateRank } from "../../utils/lexorank";
+import { pushToOWR, checkAuth, owrApiFetch } from "../../utils/owr-sync";
+import { setItem } from "../../utils/storage";
 import { setLists, toggleFolder, updateList } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
 import { getRandomId } from "../../utils/id";
@@ -74,7 +75,25 @@ const armyIconMap = {
 export const Home = ({ isMobile }) => {
   const MainComponent = isMobile ? Main : Fragment;
   const settings = useSelector((state) => state.settings);
-  let lists = updateListsFolder(useSelector((state) => state.lists));
+  const dispatch = useDispatch();
+  const rawLists = useSelector((state) => state.lists);
+
+  // Ensure all lists have ranks (migration for legacy lists)
+  // This persists ranks to localStorage/sync when lists without ranks are detected
+  useEffect(() => {
+    if (!rawLists || rawLists.length === 0) return;
+    const { lists: withRanks, needsUpdate } = ensureRanks(rawLists);
+    if (needsUpdate) {
+      console.log("Assigning ranks to lists:", withRanks);
+      setItem("owb.lists", JSON.stringify(withRanks));
+      pushToOWR(withRanks);
+      dispatch(setLists(withRanks));
+    }
+  }, [rawLists, dispatch]);
+
+  // Sort by rank - folder values are stored explicitly and synced
+  // (ensureRanks handles migration of legacy lists without ranks/folders)
+  let lists = sortByRank(ensureRanks(rawLists).lists);
 
   // Sort lists based on the current sorting setting
   switch (settings.listSorting) {
@@ -155,10 +174,11 @@ export const Home = ({ isMobile }) => {
       break;
   }
 
+  // Float pinned items to the top within their context group
+  lists = sortWithPins(lists);
+
   const location = useLocation();
   const { language } = useLanguage();
-  const { timezone } = useTimezone();
-  const dispatch = useDispatch();
   const intl = useIntl();
   const [listsInFolder, setListsInFolder] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(null);
@@ -166,67 +186,70 @@ export const Home = ({ isMobile }) => {
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [activeDeleteOption, setActiveDeleteOption] = useState("delete");
+  const [tournamentMap, setTournamentMap] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchTournaments = async () => {
+      const authed = await checkAuth();
+      if (cancelled || !authed) return;
+      try {
+        const res = await owrApiFetch("/api/builder/tournaments");
+        if (res.ok) {
+          const data = await res.json();
+          const map = {};
+          (data.tournaments || []).forEach((t) => {
+            if (t.submitted_list_id) {
+              map[t.submitted_list_id] = {
+                approved: t.list_approved,
+                name: t.name,
+                url: t.friendly_url,
+              };
+            }
+          });
+          if (!cancelled) setTournamentMap(map);
+        }
+      } catch (e) {
+        console.warn("Failed to fetch tournament status:", e);
+      }
+    };
+    fetchTournaments();
+    return () => { cancelled = true; };
+  }, []);
+
   const resetState = () => {
     dispatch(setArmy(null));
     dispatch(setItems(null));
   };
   const updateLocalSettings = (newSettings) => {
-    localStorage.setItem("owb.settings", JSON.stringify(newSettings));
+    setItem("owb.settings", JSON.stringify(newSettings));
   };
+  const folders = lists.filter((list) => list.type === "folder");
+
   const handleListMoved = ({ sourceIndex, destinationIndex }) => {
-    const draggedItem = lists.find((list, index) => index === sourceIndex);
+    // Indices from react-beautiful-dnd are into the full lists array
+    const draggedItem = lists[sourceIndex];
     const difference = sourceIndex - destinationIndex;
 
     setListsInFolder([]);
 
-    if (difference === 0) {
+    if (difference === 0 || !draggedItem) {
       return;
     }
 
     if (draggedItem.type === "folder") {
-      const listBeforeDestination = lists.find(
-        (_, index) => index === destinationIndex - 1,
-      );
-      const listAtDestination = lists.find(
-        (_, index) => index === destinationIndex,
-      );
-      const listAfterDestination = lists.find(
-        (_, index) => index === destinationIndex + 1,
-      );
+      // Use reorderFolder - only changes folder's rank, contents follow via sort
+      const newLists = reorderFolder(lists, sourceIndex, destinationIndex);
 
-      if (
-        !listBeforeDestination ||
-        !listAfterDestination ||
-        (difference > 0 && listAtDestination.type === "folder") || // Moving up
-        (difference < 0 && listAfterDestination.type === "folder") // Moving down
-      ) {
-        let newLists = swap(lists, sourceIndex, destinationIndex);
-        const listsInFolder = lists.filter(
-          (list) => list.folder === draggedItem.id,
-        );
-
-        listsInFolder.forEach((_, index) => {
-          newLists = swap(
-            newLists,
-            sourceIndex + (destinationIndex < sourceIndex ? 1 + index : 0),
-            destinationIndex + (destinationIndex < sourceIndex ? 1 + index : 0),
-          );
-        });
-        newLists = updateListsFolder(newLists);
-
-        localStorage.setItem("owb.lists", JSON.stringify(newLists));
-        dispatch(setLists(newLists));
-
-        const newSettings = { ...settings, lastChanged: new Date().toString() };
-        dispatch(updateSetting({ lastChanged: newSettings.lastChanged }));
-        localStorage.setItem("owb.settings", JSON.stringify(newSettings));
-      }
+      setItem("owb.lists", JSON.stringify(newLists));
+      pushToOWR(newLists);
+      dispatch(setLists(newLists));
     } else {
-      let newLists = updateListsFolder(
-        swap(lists, sourceIndex, destinationIndex),
-      );
+      // Use reorderList to set rank and folder explicitly
+      let newLists = reorderList(lists, sourceIndex, destinationIndex);
 
-      localStorage.setItem("owb.lists", JSON.stringify(newLists));
+      setItem("owb.lists", JSON.stringify(newLists));
+      pushToOWR(newLists);
       dispatch(setLists(newLists));
 
       const newSettings = { ...settings, lastChanged: new Date().toString() };
@@ -234,7 +257,6 @@ export const Home = ({ isMobile }) => {
       localStorage.setItem("owb.settings", JSON.stringify(newSettings));
     }
   };
-  const folders = lists.filter((list) => list.type === "folder");
   const listsWithoutFolders = lists.filter((list) => list.type !== "folder");
   const moreButtonsFolder = [
     {
@@ -344,11 +366,20 @@ export const Home = ({ isMobile }) => {
     setFolderName("");
   };
   const handleDeleteConfirm = () => {
-    let newLists = lists.filter((list) => list.id !== activeMenu);
+    // Mark the list as deleted instead of filtering it out
+    // This allows the deletion to sync properly to the server
+    let newLists = lists.map((list) =>
+      list.id === activeMenu
+        ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
+        : list
+    );
 
+    // For folder deletion with "delete contents" option, also mark children
     if (activeDeleteOption === "delete") {
-      newLists = newLists.filter(
-        (list) => list.folder !== activeMenu || !list.folder,
+      newLists = newLists.map((list) =>
+        list.folder === activeMenu
+          ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
+          : list
       );
     }
 
@@ -356,12 +387,13 @@ export const Home = ({ isMobile }) => {
 
     setDialogOpen(null);
     setActiveMenu(null);
-    dispatch(setLists(newLists));
-    localStorage.setItem("owb.lists", JSON.stringify(newLists));
 
-    const newSettings = { ...settings, lastChanged: new Date().toString() };
-    dispatch(updateSetting({ lastChanged: newSettings.lastChanged }));
-    localStorage.setItem("owb.settings", JSON.stringify(newSettings));
+    // Display only non-deleted lists
+    dispatch(setLists(newLists.filter((l) => !l._deleted)));
+
+    // Store all lists (including deleted markers) for sync
+    setItem("owb.lists", JSON.stringify(newLists));
+    pushToOWR(newLists);
   };
   const handleEditConfirm = () => {
     const list = lists.find((list) => list.id === activeMenu);
@@ -379,17 +411,34 @@ export const Home = ({ isMobile }) => {
     localStorage.setItem("owb.settings", JSON.stringify(newSettings));
   };
   const handleNewConfirm = () => {
+    // Find ALL top-level items (folders are top-level with folder:null)
+    const topLevelItems = lists.filter(
+      (item) => item.folder === null || item.folder === undefined || item.type === "folder"
+    );
+
+    // Find the item with the highest (last) rank to place new folder after it
+    // This ensures new folder appears at the absolute bottom in display order
+    const lastTopLevelItem = topLevelItems.sort((a, b) => {
+      if (!a.rank) return -1;
+      if (!b.rank) return 1;
+      return a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0;
+    }).pop();
+
+    const newRank = generateRank(lastTopLevelItem?.rank, null); // Generate rank after last item
+
     const newLists = updateListsFolder([
+      ...lists,  // Existing lists first - prevents capturing folder:null lists
       {
         id: `folder-${getRandomId()}`,
         name: folderName || intl.formatMessage({ id: "home.newFolder" }),
         type: "folder",
         open: true,
+        rank: newRank,  // Assign rank to place at absolute bottom
       },
-      ...lists,
     ]);
 
-    localStorage.setItem("owb.lists", JSON.stringify(newLists));
+    setItem("owb.lists", JSON.stringify(newLists));
+    pushToOWR(newLists);
     dispatch(setLists(newLists));
 
     const newSettings = { ...settings, lastChanged: new Date().toString() };
@@ -398,7 +447,6 @@ export const Home = ({ isMobile }) => {
 
     setFolderName("");
     setDialogOpen(null);
-    window.scrollTo(0, 0);
   };
   const handleDragStart = (start) => {
     const draggedItem = lists.find(
@@ -416,6 +464,39 @@ export const Home = ({ isMobile }) => {
   const handleDeleteOptionChange = (option) => {
     setActiveDeleteOption(option);
   };
+  const handleTogglePin = (listId) => {
+    const list = rawLists.find((l) => l.id === listId);
+    if (!list) return;
+
+    const newPinnedAt = list.pinned_at ? null : new Date().toISOString();
+    const newLists = rawLists.map((l) =>
+      l.id === listId
+        ? { ...l, pinned_at: newPinnedAt, updated_at: new Date().toISOString() }
+        : l
+    );
+
+    setItem("owb.lists", JSON.stringify(newLists));
+    pushToOWR(newLists);
+    dispatch(setLists(newLists));
+  };
+  const handleSwipeDelete = (listId) => {
+    setActiveMenu(listId);
+    setDialogOpen("delete-list");
+  };
+  const handleDeleteListConfirm = () => {
+    let newLists = lists.map((list) =>
+      list.id === activeMenu
+        ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
+        : list
+    );
+
+    setDialogOpen(null);
+    setActiveMenu(null);
+
+    dispatch(setLists(newLists.filter((l) => !l._deleted)));
+    setItem("owb.lists", JSON.stringify(newLists));
+    pushToOWR(newLists);
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -425,9 +506,8 @@ export const Home = ({ isMobile }) => {
     <>
       <Helmet>
         <title>
-          Old World Builder - Army builder for Warhammer: The Old World
+          Battle Builder - Army list builder for Warhammer: The Old World
         </title>
-        <link rel="canonical" href="https://old-world-builder.com/" />
       </Helmet>
 
       <Dialog
@@ -534,6 +614,43 @@ export const Home = ({ isMobile }) => {
         </form>
       </Dialog>
 
+      <Dialog
+        open={dialogOpen === "delete-list"}
+        onClose={() => setDialogOpen(null)}
+      >
+        <p className="home__delete-text">
+          <FormattedMessage
+            id="home.confirmDeleteList"
+            values={{
+              name: (
+                <b>
+                  {lists.find((l) => l.id === activeMenu)?.name || ""}
+                </b>
+              ),
+            }}
+          />
+        </p>
+        <div className="editor__delete-dialog">
+          <Button
+            type="text"
+            onClick={handleCancelClick}
+            icon="close"
+            spaceTop
+            color="dark"
+          >
+            <FormattedMessage id="misc.cancel" />
+          </Button>
+          <Button
+            type="primary"
+            icon="delete"
+            spaceTop
+            onClick={handleDeleteListConfirm}
+          >
+            <FormattedMessage id="misc.delete" />
+          </Button>
+        </div>
+      </Dialog>
+
       <Dialog open={dialogOpen === "new"} onClose={() => setDialogOpen(null)}>
         <form
           onSubmit={(e) => {
@@ -571,7 +688,7 @@ export const Home = ({ isMobile }) => {
         </form>
       </Dialog>
 
-      {isMobile && <Header headline="Old World Builder" hasMainNavigation />}
+      {isMobile && <Header headline="Battle Builder" hasMainNavigation hasOWRButton />}
       <MainComponent>
         {listsWithoutFolders.length > 0 && (
           <section className="column-header home__header">
@@ -626,10 +743,10 @@ export const Home = ({ isMobile }) => {
         {listsWithoutFolders.length === 0 && (
           <>
             <img
-              src={owb}
+              src={owrLogo}
               alt=""
-              width="100"
-              height="100"
+              width="120"
+              height="120"
               className="home__logo"
             />
             <i className="home__empty">
@@ -653,6 +770,7 @@ export const Home = ({ isMobile }) => {
               type,
               folder,
               open,
+              pinned_at,
               ...list
             }) =>
               type === "folder" ? (
@@ -731,7 +849,7 @@ export const Home = ({ isMobile }) => {
                   )}
                 </ListItem>
               ) : (
-                <ListItem
+                <SwipeableListItem
                   key={id}
                   to={`/editor/${id}`}
                   active={location.pathname.includes(id)}
@@ -743,10 +861,17 @@ export const Home = ({ isMobile }) => {
                   className={classNames(
                     listsInFolder.length > 0 && "home__list--dragging",
                   )}
+                  isPinned={!!pinned_at}
+                  onSwipeLeft={() => handleSwipeDelete(id)}
+                  onSwipeRight={() => handleTogglePin(id)}
+                  resetTrigger={dialogOpen}
                 >
                   {folder ? (
                     <Icon symbol="folder" className="home__folder-icon" />
                   ) : null}
+                  {pinned_at && (
+                    <Icon symbol="pin" className="home__pin-icon" />
+                  )}
                   <span className="home__list-item">
                     <h2 className="home__headline">{name}</h2>
                     {description && (
@@ -767,8 +892,24 @@ export const Home = ({ isMobile }) => {
                       src={armyIconMap[army] || owb}
                       alt=""
                     />
+                    {tournamentMap[id] && (
+                      <a
+                        href={tournamentMap[id].url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`home__tournament-icon ${
+                          tournamentMap[id].approved
+                            ? "home__tournament-icon--approved"
+                            : "home__tournament-icon--pending"
+                        }`}
+                        title={tournamentMap[id].name}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        🏟️
+                      </a>
+                    )}
                   </div>
-                </ListItem>
+                </SwipeableListItem>
               ),
           )}
         </OrderableList>
@@ -793,62 +934,6 @@ export const Home = ({ isMobile }) => {
         >
           <FormattedMessage id="home.import" />
         </Button>
-
-        <hr />
-
-        <p>
-          <b>
-            <i>
-              <FormattedMessage id="home.sponsored" />
-            </i>
-          </b>
-        </p>
-
-        <a
-          className="home__banner-link"
-          href="https://tinyurl.com/Forg3dOWB"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img
-            src={forg3dBanner}
-            className="home__banner-image"
-            alt={intl.formatMessage({ id: "home.forg3d" })}
-            loading="lazy"
-          />
-        </a>
-
-        {timezone === "europe" ? (
-          <a
-            className="home__banner-link"
-            href={`https://www.fantasywelt.de/?wsa=jcdi7h53acjhc${
-              language === "de" ? "&lang=ger" : "&lang=eng"
-            }`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <img
-              src={language === "de" ? fantasyweltDe : fantasyweltEn}
-              className="home__banner-image"
-              alt={intl.formatMessage({ id: "home.fantasywelt" })}
-              loading="lazy"
-            />
-          </a>
-        ) : (
-          <a
-            className="home__banner-link"
-            href="https://miniwargamingforge.com?sca_ref=6115787.XxehNS6tUCHiFExD"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <img
-              src={mwgForge}
-              className="home__banner-image"
-              alt={intl.formatMessage({ id: "home.mwgForge" })}
-              loading="lazy"
-            />
-          </a>
-        )}
       </MainComponent>
     </>
   );
