@@ -45,13 +45,17 @@ export const updateLocalList = (updatedList) => {
   } catch (error) {}
 };
 
+export const makeTombstone = (listId) => ({
+  id: listId,
+  _deleted: true,
+  updated_at: new Date().toISOString(),
+});
+
 export const removeFromLocalList = (listId) => {
   const localLists = JSON.parse(getItem("owb.lists")) || [];
 
   const updatedLists = localLists.map((list) =>
-    list.id === listId
-      ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
-      : list
+    list.id === listId ? makeTombstone(listId) : list
   );
 
   persistAndSyncLists(updatedLists);

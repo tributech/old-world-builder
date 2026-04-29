@@ -36,7 +36,7 @@ import bretonnia from "../../assets/army-icons/bretonnia.svg";
 import cathay from "../../assets/army-icons/cathay.svg";
 import renegade from "../../assets/army-icons/renegade.svg";
 import { useLanguage } from "../../utils/useLanguage";
-import { updateLocalList, updateListsFolder } from "../../utils/owr-list";
+import { updateLocalList, updateListsFolder, makeTombstone } from "../../utils/owr-list";
 import { sortByRank, sortWithPins, ensureRanks, reorderList, reorderFolder } from "../../utils/list-ordering";
 import { SwipeableListItem } from "../../components/swipeable-list-item";
 import { generateRank } from "../../utils/lexorank";
@@ -369,17 +369,13 @@ export const Home = ({ isMobile }) => {
     // Mark the list as deleted instead of filtering it out
     // This allows the deletion to sync properly to the server
     let newLists = lists.map((list) =>
-      list.id === activeMenu
-        ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
-        : list
+      list.id === activeMenu ? makeTombstone(list.id) : list
     );
 
     // For folder deletion with "delete contents" option, also mark children
     if (activeDeleteOption === "delete") {
       newLists = newLists.map((list) =>
-        list.folder === activeMenu
-          ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
-          : list
+        list.folder === activeMenu ? makeTombstone(list.id) : list
       );
     }
 
@@ -485,9 +481,7 @@ export const Home = ({ isMobile }) => {
   };
   const handleDeleteListConfirm = () => {
     let newLists = lists.map((list) =>
-      list.id === activeMenu
-        ? { ...list, _deleted: true, updated_at: new Date().toISOString() }
-        : list
+      list.id === activeMenu ? makeTombstone(list.id) : list
     );
 
     setDialogOpen(null);

@@ -76,6 +76,20 @@ describe("mergeLists", () => {
     const result = mergeLists([], server);
     expect(result.find((l) => l.id === "s1")).toBeUndefined();
   });
+
+  test("drops list when server tombstone supersedes local non-deleted", () => {
+    const local = [{ id: "1", name: "Local", updated_at: "2026-01-01T00:00:00Z" }];
+    const server = [{ id: "1", _deleted: true, updated_at: "2026-02-01T00:00:00Z" }];
+    const result = mergeLists(local, server);
+    expect(result.find((l) => l.id === "1")).toBeUndefined();
+  });
+
+  test("drops both tombstones when local delete and server delete agree", () => {
+    const local = [{ id: "1", _deleted: true, updated_at: "2026-01-01T00:00:00Z" }];
+    const server = [{ id: "1", _deleted: true, updated_at: "2026-01-01T00:00:00Z" }];
+    const result = mergeLists(local, server);
+    expect(result).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -106,6 +120,29 @@ describe("applyDelta", () => {
     const delta = [{ id: "2", name: "New" }];
     const result = applyDelta(local, delta, []);
     expect(result.some((l) => l.id === "2")).toBe(true);
+  });
+
+  test("skips server tombstones not in local", () => {
+    const local = [{ id: "1" }];
+    const delta = [{ id: "2", _deleted: true, updated_at: "2026-01-01T00:00:00Z" }];
+    const result = applyDelta(local, delta, []);
+    expect(result.some((l) => l.id === "2")).toBe(false);
+  });
+
+  test("drops local list when delta replaces it with a tombstone", () => {
+    const local = [{ id: "1", name: "Local" }];
+    const delta = [{ id: "1", _deleted: true, updated_at: "2026-01-01T00:00:00Z" }];
+    const result = applyDelta(local, delta, []);
+    expect(result.some((l) => l.id === "1")).toBe(false);
+  });
+
+  test("drops stale local tombstone when server stops broadcasting", () => {
+    const local = [
+      { id: "1", name: "Keep" },
+      { id: "2", _deleted: true, updated_at: "2026-01-01T00:00:00Z" },
+    ];
+    const result = applyDelta(local, [], []);
+    expect(result.map((l) => l.id)).toEqual(["1"]);
   });
 });
 
@@ -220,5 +257,46 @@ describe("applySyncResponse", () => {
     const local = [{ id: "1" }];
     const result = applySyncResponse(local, {});
     expect(result).toEqual(local);
+  });
+
+  test("drops acked tombstones from local after merge response", () => {
+    const local = [
+      { id: "1", name: "Keep" },
+      { id: "2", _deleted: true, updated_at: "2026-01-01T00:00:00Z" },
+    ];
+    const data = {
+      lists: [
+        { id: "2", _deleted: true, updated_at: "2026-01-01T00:00:00Z" },
+      ],
+    };
+    const dirty = [{ id: "2", _deleted: true, updated_at: "2026-01-01T00:00:00Z" }];
+    const result = applySyncResponse(local, data, dirty);
+    expect(result.map((l) => l.id)).toEqual(["1"]);
+  });
+
+  test("drops acked tombstones from local after delta response", () => {
+    const local = [
+      { id: "1", name: "Keep" },
+      { id: "2", _deleted: true, updated_at: "2026-01-01T00:00:00Z" },
+    ];
+    const data = {
+      lists: [{ id: "2", _deleted: true, updated_at: "2026-01-01T00:00:00Z" }],
+      deleted_ids: [],
+    };
+    const dirty = [{ id: "2", _deleted: true, updated_at: "2026-01-01T00:00:00Z" }];
+    const result = applySyncResponse(local, data, dirty);
+    expect(result.map((l) => l.id)).toEqual(["1"]);
+  });
+
+  test("keeps resurrected list when another device modified after our delete", () => {
+    const local = [
+      { id: "2", _deleted: true, updated_at: "2026-01-01T00:00:00Z" },
+    ];
+    const data = {
+      lists: [{ id: "2", name: "Resurrected", updated_at: "2026-02-01T00:00:00Z" }],
+    };
+    const dirty = [{ id: "2", _deleted: true, updated_at: "2026-01-01T00:00:00Z" }];
+    const result = applySyncResponse(local, data, dirty);
+    expect(result.find((l) => l.id === "2").name).toBe("Resurrected");
   });
 });

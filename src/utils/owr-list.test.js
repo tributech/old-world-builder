@@ -77,10 +77,16 @@ describe("removeFromLocalList", () => {
     vi.clearAllMocks();
   });
 
-  test("marks list as _deleted with timestamp and syncs", () => {
+  test("replaces list with slim tombstone and syncs", () => {
     const lists = [
       { id: "list-1", name: "Keep" },
-      { id: "list-2", name: "Delete Me" },
+      {
+        id: "list-2",
+        name: "Delete Me",
+        units: [{ id: "u1" }, { id: "u2" }],
+        points: 1500,
+        rank: "0|hzzzzz:",
+      },
     ];
     store["owb.lists"] = JSON.stringify(lists);
 
@@ -89,8 +95,11 @@ describe("removeFromLocalList", () => {
     const stored = JSON.parse(store["owb.lists"]);
     expect(stored).toHaveLength(2);
     expect(stored[0]._deleted).toBeUndefined();
-    expect(stored[1]._deleted).toBe(true);
-    expect(stored[1].updated_at).toBeDefined();
+    expect(stored[1]).toEqual({
+      id: "list-2",
+      _deleted: true,
+      updated_at: expect.any(String),
+    });
     expect(pushToOWR).toHaveBeenCalledTimes(1);
   });
 

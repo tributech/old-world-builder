@@ -465,18 +465,35 @@ export const flushPendingSync = async () => {
 /**
  * Apply the server's sync response to local lists.
  * Handles both delta responses (deleted_ids present) and full responses.
+ *
+ * Once the server has accepted our tombstones it owns the broadcast for the
+ * next 7 days, so we drop them from localStorage immediately on ack instead of
+ * keeping them around until cleanupDeletedLists runs. If the response shows
+ * another device resurrected the list, we keep the resurrected version.
  */
-const applySyncResponse = (localLists, data) => {
+const applySyncResponse = (localLists, data, dirtySent = []) => {
   if (data.synced_at) {
     serverSyncedAt = data.synced_at;
   }
+  let result;
   if (data.deleted_ids) {
-    return applyDelta(localLists, data.lists || [], data.deleted_ids);
+    result = applyDelta(localLists, data.lists || [], data.deleted_ids);
+  } else if (data.lists) {
+    result = mergeLists(localLists, data.lists);
+  } else {
+    result = localLists;
   }
-  if (data.lists) {
-    return mergeLists(localLists, data.lists);
+
+  const ackedTombstones = new Set();
+  for (const list of dirtySent) {
+    if (list && list._deleted) ackedTombstones.add(list.id);
   }
-  return localLists;
+  if (!ackedTombstones.size) return result;
+
+  return result.filter((list) => {
+    if (!ackedTombstones.has(list.id)) return true;
+    return !list._deleted;
+  });
 };
 
 const syncListsNow = async (
@@ -509,7 +526,7 @@ const syncListsNow = async (
 
     const data = await res.json();
     const currentLocal = JSON.parse(getItem("owb.lists")) || [];
-    const updated = applySyncResponse(currentLocal, data);
+    const updated = applySyncResponse(currentLocal, data, dirty);
     setItem("owb.lists", JSON.stringify(updated));
 
     lastSyncedAt = new Date();
@@ -581,7 +598,7 @@ export const forceSync = async () => {
     }
 
     const data = await pushRes.json();
-    const mergedLists = applySyncResponse(localLists, data);
+    const mergedLists = applySyncResponse(localLists, data, dirty);
     setItem("owb.lists", JSON.stringify(mergedLists));
     lastSyncedAt = new Date();
     hasPendingChanges = false;
@@ -659,15 +676,21 @@ const applyDelta = (localLists, deltaLists, deletedIds) => {
     localIds.add(list.id);
     if (deleteSet.has(list.id)) return; // Server says remove it
     if (deltaMap.has(list.id)) {
-      result.push(deltaMap.get(list.id)); // Server has newer version
+      const delta = deltaMap.get(list.id);
+      if (delta._deleted) return; // Server tombstone — drop the list, don't store the marker
+      result.push(delta);
     } else {
-      result.push(list); // Unchanged
+      if (list._deleted) return; // Stale local tombstone — server has stopped broadcasting it
+      result.push(list);
     }
   });
 
-  // Add brand new lists from delta (not already local)
+  // Add brand new lists from delta (not already local).
+  // Skip server-side tombstones we don't already track locally — there's
+  // nothing to delete on this device, and re-adding the tombstone would just
+  // resurrect it in storage until cleanupDeletedLists runs.
   deltaLists.forEach((list) => {
-    if (!localIds.has(list.id)) {
+    if (!localIds.has(list.id) && !list._deleted) {
       result.push(list);
     }
   });
@@ -699,36 +722,36 @@ const mergeLists = (local, server) => {
     processedServerIds.add(localList.id);
 
     if (localList._deleted) {
-      // Local list is marked deleted
-      if (serverList) {
-        const localTime = localList.updated_at
-          ? new Date(localList.updated_at).getTime()
-          : 0;
-        const serverTime = serverList.updated_at
-          ? new Date(serverList.updated_at).getTime()
-          : 0;
-        // If server is newer, undo the delete
-        if (serverTime > localTime) {
-          result.push(serverList);
-        }
-        // Otherwise, keep it deleted (don't add to result)
+      // Local list is marked deleted. Only resurrect when the server has a
+      // newer non-deleted version (another device modified after our delete).
+      // Otherwise drop both the local tombstone and any server tombstone —
+      // there's no list to display and no marker worth retaining.
+      if (
+        serverList &&
+        !serverList._deleted &&
+        new Date(serverList.updated_at || 0).getTime() >
+          new Date(localList.updated_at || 0).getTime()
+      ) {
+        result.push(serverList);
       }
-      // If not on server, just skip (it's deleted)
       return;
     }
 
     if (!serverList) {
-      // Only exists locally, keep it
       result.push(localList);
     } else {
-      // Exists on both - keep the newer one
       const localTime = localList.updated_at
         ? new Date(localList.updated_at).getTime()
         : 0;
       const serverTime = serverList.updated_at
         ? new Date(serverList.updated_at).getTime()
         : 0;
-      result.push(localTime >= serverTime ? localList : serverList);
+      if (localTime >= serverTime) {
+        result.push(localList);
+      } else if (!serverList._deleted) {
+        result.push(serverList);
+      }
+      // else: server tombstone supersedes local list — drop entirely
     }
   });
 
