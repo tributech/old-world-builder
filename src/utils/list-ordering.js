@@ -1,14 +1,5 @@
-/**
- * Explicit list ordering using lexorank.
- * Replaces position-based folder assignment for syncable ordering.
- *
- * This is a NEW file - existing list.js is unchanged.
- * For upstream: https://github.com/oldworldbuilder/old-world-builder
- */
+import { generateRank, isValidRank } from "./lexorank";
 
-import { generateRank } from "./lexorank";
-
-/** Compare two items by rank (ASCII string order, nulls last). */
 const byRank = (a, b) => {
   if (!a.rank && !b.rank) return 0;
   if (!a.rank) return 1;
@@ -18,31 +9,18 @@ const byRank = (a, b) => {
   return 0;
 };
 
-/**
- * Sort lists by rank for display, grouping folder contents after their folder.
- *
- * Order:
- * 1. Items with folder:null and folders themselves, sorted by rank
- * 2. After each folder, its contents sorted by rank
- *
- * This means moving a folder only requires changing the folder's rank -
- * contents automatically follow because they're grouped.
- */
 export const sortByRank = (lists) => {
-  // Separate top-level items (folder:null) and folders
   const topLevel = lists.filter(
     (l) => l.folder === null || l.folder === undefined || l.type === "folder"
   );
 
   const sortedTopLevel = [...topLevel].sort(byRank);
 
-  // Build result: for each top-level item, if it's a folder, insert its contents after
   const result = [];
   for (const item of sortedTopLevel) {
     result.push(item);
 
     if (item.type === "folder") {
-      // Get folder contents and sort by rank
       const contents = lists
         .filter((l) => l.folder === item.id)
         .sort(byRank);
@@ -53,57 +31,73 @@ export const sortByRank = (lists) => {
   return result;
 };
 
-/**
- * Assign initial ranks and folders to items that don't have them.
- * Called on app load to migrate legacy lists.
- *
- * Walks through lists in current order and generates ranks that
- * preserve that order. Also calculates folder membership from position
- * for items that don't have a rank yet (legacy migration).
- *
- * @param {Array} lists - Lists to process (in current order)
- * @returns {{ lists: Array, needsUpdate: boolean }} - Lists with ranks, and whether any were added
- */
+export const rankAtTop = (lists) => {
+  const sorted = sortByRank(lists);
+  return generateRank(null, sorted[0]?.rank || null);
+};
+
+// Ranks within `source`'s folder context — siblings outside the folder
+// don't constrain the position.
+export const rankAfter = (lists, source) => {
+  const siblingFolder = source?.folder || null;
+  const siblings = lists
+    .filter((l) => (l.folder || null) === siblingFolder)
+    .slice()
+    .sort(byRank);
+  const idx = siblings.findIndex((l) => l.id === source?.id);
+  const next = idx >= 0 ? siblings[idx + 1] : null;
+  return generateRank(source?.rank || null, next?.rank || null);
+};
+
 export const ensureRanks = (lists) => {
   let lastRank = null;
   let needsUpdate = false;
   let currentFolder = null;
+  const seenRanks = new Set();
 
-  // Pre-compute the first folder's rank so top-level items
-  // without a rank can be placed before all folders.
-  const firstFolderRank = lists.find((l) => l.type === "folder" && l.rank)?.rank || null;
+  const firstFolderRank =
+    lists.find((l) => l.type === "folder" && isValidRank(l.rank))?.rank || null;
 
   const result = lists.map((list, index) => {
-    // Track current folder from position (for legacy migration)
     if (list.type === "folder") {
       currentFolder = list.id;
     }
 
-    // Already has rank - use it as-is
-    if (list.rank) {
+    if (isValidRank(list.rank) && !seenRanks.has(list.rank)) {
+      seenRanks.add(list.rank);
       lastRank = list.rank;
       return list;
     }
 
-    // For legacy items without rank, set folder from position only if
-    // they have no explicit folder property (truly legacy migration).
+    // Legacy migration: items without an explicit folder field inherit
+    // currentFolder from their array position (pre-rank lists relied on
+    // position to convey containment).
     const newFolder = list.type === "folder"
       ? list.folder
       : (list.folder !== undefined ? list.folder : currentFolder);
 
-    // Top-level items (folder:null) should rank before folders,
-    // not at their current array position (which may be after folders
-    // due to sortByRank placing no-rank items last).
+    // Top-level items rank before the first folder regardless of array
+    // position. Use lastRank as the lower bound so multiple top-level items
+    // each get a distinct rank instead of collapsing to the same midpoint.
     let newRank;
     if (newFolder === null && list.type !== "folder" && firstFolderRank) {
-      newRank = generateRank(null, firstFolderRank);
+      const lower = lastRank && lastRank < firstFolderRank ? lastRank : null;
+      newRank = generateRank(lower, firstFolderRank);
     } else {
       const nextWithRank = lists.slice(index + 1).find((l) => l.rank);
       newRank = generateRank(lastRank, nextWithRank?.rank);
     }
 
+    // Guarantee uniqueness even if midpoint lands on an existing rank
+    // (corrupted data or unfortunate spacing). Appending "h" extends the
+    // string to a strictly-greater value that no prior rank can match.
+    while (seenRanks.has(newRank)) {
+      newRank = newRank + "h";
+    }
+
     needsUpdate = true;
     lastRank = newRank;
+    seenRanks.add(newRank);
 
     return {
       ...list,
@@ -116,15 +110,9 @@ export const ensureRanks = (lists) => {
   return { lists: result, needsUpdate };
 };
 
-/**
- * Float pinned items to the top within their context group.
- * Runs after sortByRank and any name/faction sorting.
- *
- * Within each group (top-level or folder contents), pinned items
- * sort to the top, ordered by pinned_at ascending (oldest pin first).
- * Unpinned items keep their current relative order.
- * Folders themselves are never reordered by this.
- */
+// Float pinned items to the top of their context group (top-level run or
+// folder contents). Pinned items sort by pinned_at ascending; folders are
+// never moved. Runs after sortByRank.
 export const sortWithPins = (lists) => {
   const result = [];
   let i = 0;
@@ -135,7 +123,6 @@ export const sortWithPins = (lists) => {
     if (item.type === "folder") {
       result.push(item);
       i++;
-      // Collect folder contents
       const contents = [];
       while (i < lists.length && lists[i].folder === item.id) {
         contents.push(lists[i]);
@@ -147,7 +134,6 @@ export const sortWithPins = (lists) => {
       const unpinned = contents.filter((c) => !c.pinned_at);
       result.push(...pinned, ...unpinned);
     } else if (!item.folder) {
-      // Top-level non-folder items - collect consecutive group
       const group = [item];
       i++;
       while (
@@ -164,7 +150,6 @@ export const sortWithPins = (lists) => {
       const unpinned = group.filter((c) => !c.pinned_at);
       result.push(...pinned, ...unpinned);
     } else {
-      // Orphaned item (folder reference but folder not found) - pass through
       result.push(item);
       i++;
     }
@@ -173,41 +158,42 @@ export const sortWithPins = (lists) => {
   return result;
 };
 
-/**
- * Reorder a list item - generate rank between neighbors at destination.
- *
- * @param {Array} lists - Current lists (already sorted by rank)
- * @param {number} sourceIndex - Index where item is dragged from
- * @param {number} destIndex - Index where item is dropped
- * @returns {Array} Updated lists with new rank/folder
- */
 export const reorderList = (lists, sourceIndex, destIndex) => {
   const item = lists[sourceIndex];
 
-  // Get prev/next at destination
   const withoutItem = lists.filter((_, i) => i !== sourceIndex);
   const insertAt = destIndex;
 
   const prev = withoutItem[insertAt - 1] || null;
-  const next = withoutItem[insertAt] || null;
+  let next = withoutItem[insertAt] || null;
 
-  // Folder = nearest folder header before destination
   let newFolder = null;
   for (let i = insertAt - 1; i >= 0; i--) {
     if (withoutItem[i]?.type === "folder") {
+      if (withoutItem[i].open === false) break;
       newFolder = withoutItem[i].id;
       break;
     }
   }
 
-  // If dropping after a collapsed folder, go to END of its contents
+  // If dropping after a collapsed folder, advance BOTH bounds past its
+  // hidden children so the new rank lands cleanly after the whole group.
+  // (Hidden children have height:0 but still occupy rbd flat indices, so
+  // `next` could otherwise be a hidden child, producing a degenerate range.)
   let prevRank = prev?.rank || null;
-  if (prev?.type === "folder" && !prev?.open && newFolder) {
-    const contents = lists.filter((l) => l.folder === newFolder);
+  if (prev?.type === "folder" && prev.open === false) {
+    const contents = lists.filter((l) => l.folder === prev.id);
     if (contents.length > 0) {
-      const last = contents.reduce((a, b) => ((b.rank || "") > (a.rank || "") ? b : a));
+      const last = contents.reduce((a, b) =>
+        (b.rank || "") > (a.rank || "") ? b : a,
+      );
       prevRank = last.rank;
     }
+    let i = insertAt;
+    while (i < withoutItem.length && withoutItem[i]?.folder === prev.id) {
+      i++;
+    }
+    next = withoutItem[i] || null;
   }
 
   const newRank = generateRank(prevRank, next?.rank || null);
@@ -219,10 +205,6 @@ export const reorderList = (lists, sourceIndex, destIndex) => {
   );
 };
 
-/**
- * Reorder a folder - just changes the folder's rank.
- * Contents automatically follow because sortByRank groups them after their folder.
- */
 export const reorderFolder = (lists, sourceIndex, destIndex) => {
   const folder = lists[sourceIndex];
 
@@ -230,30 +212,51 @@ export const reorderFolder = (lists, sourceIndex, destIndex) => {
     return reorderList(lists, sourceIndex, destIndex);
   }
 
-  // Exclude folder and its contents to find real neighbors
-  const contentIds = new Set(lists.filter((l) => l.folder === folder.id).map((l) => l.id));
-  const others = lists.filter((l) => l.id !== folder.id && !contentIds.has(l.id));
+  // rbd's destIndex is the position in the NEW array (after removing source).
+  // Operate on the post-removal array so destIndex maps correctly regardless
+  // of whether source < dest or source > dest.
+  const contentIds = new Set(
+    lists.filter((l) => l.folder === folder.id).map((l) => l.id),
+  );
+  const withoutFolder = lists.filter((_, i) => i !== sourceIndex);
 
-  // Find where folder lands among "others"
-  // Count how many "others" are before destIndex in original list
-  let insertAt = 0;
-  for (let i = 0; i < destIndex; i++) {
-    if (lists[i].id !== folder.id && !contentIds.has(lists[i].id)) {
-      insertAt++;
+  // Find the nearest neighbor on each side, skipping the folder's own
+  // contents (they'll follow the folder visually after sortByRank groups
+  // them again).
+  let prev = null;
+  for (let i = destIndex - 1; i >= 0; i--) {
+    if (!contentIds.has(withoutFolder[i].id)) {
+      prev = withoutFolder[i];
+      break;
+    }
+  }
+  let next = null;
+  for (let i = destIndex; i < withoutFolder.length; i++) {
+    if (!contentIds.has(withoutFolder[i].id)) {
+      next = withoutFolder[i];
+      break;
     }
   }
 
-  const prev = others[insertAt - 1] || null;
-  const next = others[insertAt] || null;
-
-  // If prev is a collapsed folder, rank after its last content
+  // If prev is a collapsed folder, advance both bounds past its hidden
+  // contents so the moved folder lands cleanly after the whole group.
   let prevRank = prev?.rank || null;
-  if (prev?.type === "folder" && !prev?.open) {
+  if (prev?.type === "folder" && prev.open === false) {
     const contents = lists.filter((l) => l.folder === prev.id);
     if (contents.length > 0) {
-      const last = contents.reduce((a, b) => ((b.rank || "") > (a.rank || "") ? b : a));
+      const last = contents.reduce((a, b) =>
+        (b.rank || "") > (a.rank || "") ? b : a,
+      );
       prevRank = last.rank;
     }
+    for (let i = destIndex; i < withoutFolder.length; i++) {
+      const item = withoutFolder[i];
+      if (contentIds.has(item.id)) continue;
+      if (item.folder === prev.id) continue;
+      next = item;
+      break;
+    }
+    if (next?.folder === prev.id) next = null;
   }
 
   const newRank = generateRank(prevRank, next?.rank || null);
@@ -261,6 +264,6 @@ export const reorderFolder = (lists, sourceIndex, destIndex) => {
   return lists.map((l) =>
     l.id === folder.id
       ? { ...l, rank: newRank, updated_at: new Date().toISOString() }
-      : l
+      : l,
   );
 };

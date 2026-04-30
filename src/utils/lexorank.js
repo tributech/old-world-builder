@@ -1,67 +1,47 @@
-/**
- * Simple lexorank implementation for syncable list ordering.
- * Generates strings that sort alphabetically between two values.
- *
- * This enables folder/order changes to sync across devices by storing
- * an explicit rank rather than relying on array position.
- *
- * Uses fixed boundary markers (MIN/MAX) to ensure we can always
- * find a midpoint, even at list extremes.
- *
- * For upstream: https://github.com/oldworldbuilder/old-world-builder
- */
+// 62-char alphabet in ASCII order so index comparison and string comparison
+// agree. Midpoints can only land on alphanumeric chars (no `[ \ ] ^ _ \``
+// from the gaps between digits/uppercase/lowercase).
+const ALPHABET =
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const MIN_RANK = "000000";
+const MAX_RANK = "zzzzzz";
 
-// Fixed boundary markers - never assign these as actual ranks
-// Using multiple chars ensures we always have room for midpoints
-const MIN_RANK = "000000"; // Lower boundary
-const MAX_RANK = "zzzzzz"; // Upper boundary
+const VALID_RANK = /^[0-9A-Za-z]+$/;
+export const isValidRank = (rank) =>
+  typeof rank === "string" && VALID_RANK.test(rank);
 
-/**
- * Generate a rank string that sorts between prev and next.
- * @param {string|null} prev - Rank of item before, or null if first
- * @param {string|null} next - Rank of item after, or null if last
- * @returns {string} A rank that sorts between prev and next
- */
 export function generateRank(prev, next) {
-  // Use boundary markers when at list extremes
   const lower = prev || MIN_RANK;
   const upper = next || MAX_RANK;
-
   return midpoint(lower, upper);
 }
 
-// Character codes for boundary handling in midpoint (0-9, a-z range)
-const MIN_CHAR = 48; // '0'
-const MAX_CHAR = 122; // 'z'
+function charToIndex(c) {
+  const idx = ALPHABET.indexOf(c);
+  return idx >= 0 ? idx : 0;
+}
 
-/**
- * Find lexicographic midpoint between two strings.
- * @param {string} a - Lower bound
- * @param {string} b - Upper bound
- * @returns {string} A string that sorts between a and b
- */
 function midpoint(a, b) {
   let result = "";
   let i = 0;
 
   while (true) {
-    // Use boundary chars when string is exhausted
-    const charA = a.charCodeAt(i) || MIN_CHAR;
-    const charB = b.charCodeAt(i) || MAX_CHAR;
+    const idxA = i < a.length ? charToIndex(a[i]) : 0;
+    const idxB = i < b.length ? charToIndex(b[i]) : ALPHABET.length - 1;
 
-    if (charA === charB) {
-      result += a[i] || String.fromCharCode(MIN_CHAR);
+    if (idxA === idxB) {
+      result += ALPHABET[idxA];
       i++;
       continue;
     }
 
-    const mid = Math.floor((charA + charB) / 2);
-    if (mid === charA) {
-      result += a[i];
+    const mid = Math.floor((idxA + idxB) / 2);
+    if (mid === idxA) {
+      result += ALPHABET[idxA];
       i++;
       continue;
     }
 
-    return result + String.fromCharCode(mid);
+    return result + ALPHABET[mid];
   }
 }
