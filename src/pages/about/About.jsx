@@ -4,6 +4,7 @@ import { FormattedMessage, useIntl } from "react-intl";
 import { Helmet } from "react-helmet-async";
 
 import { Header, Main } from "../../components/page";
+import { version } from "../../../package.json";
 
 import "./About.css";
 
@@ -113,6 +114,7 @@ export const About = () => {
           countries around the world. Used without permission. No challenge to
           their status intended. All Rights Reserved to their respective owners.
         </p>
+        <p className="about__version">v{version}</p>
       </Main>
     </>
   );
