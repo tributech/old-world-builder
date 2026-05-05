@@ -300,3 +300,78 @@ describe("applySyncResponse", () => {
     expect(result.find((l) => l.id === "2").name).toBe("Resurrected");
   });
 });
+
+// ---------------------------------------------------------------------------
+// `open` per-device behaviour
+// ---------------------------------------------------------------------------
+describe("`open` is a per-device UI preference", () => {
+  test("splitDirtyLists strips `open` from outgoing payload", () => {
+    const lists = [
+      {
+        id: "f1",
+        type: "folder",
+        name: "Folder",
+        open: false,
+        updated_at: "2026-02-01T00:00:00Z",
+      },
+    ];
+    const { dirty } = splitDirtyLists(lists, "2026-01-01T00:00:00Z");
+    expect(dirty).toHaveLength(1);
+    expect(dirty[0].open).toBeUndefined();
+    expect(dirty[0].name).toBe("Folder");
+  });
+
+  test("splitDirtyLists strips `open` even on the first-sync fallback path", () => {
+    const lists = [
+      { id: "f1", type: "folder", open: true, updated_at: "2026-02-01T00:00:00Z" },
+    ];
+    const { dirty } = splitDirtyLists(lists, null);
+    expect(dirty[0].open).toBeUndefined();
+  });
+
+  test("mergeLists preserves the local `open` value when the server's version wins", () => {
+    const local = [
+      {
+        id: "f1",
+        name: "Folder",
+        type: "folder",
+        open: false,
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    const server = [
+      {
+        id: "f1",
+        name: "Folder (renamed)",
+        type: "folder",
+        updated_at: "2026-02-01T00:00:00Z",
+      },
+    ];
+    const merged = mergeLists(local, server).find((l) => l.id === "f1");
+    expect(merged.name).toBe("Folder (renamed)");
+    expect(merged.open).toBe(false);
+  });
+
+  test("applyDelta preserves the local `open` value when delta replaces the entry", () => {
+    const local = [
+      {
+        id: "f1",
+        name: "Folder",
+        type: "folder",
+        open: false,
+        updated_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    const delta = [
+      {
+        id: "f1",
+        name: "Folder (renamed)",
+        type: "folder",
+        updated_at: "2026-02-01T00:00:00Z",
+      },
+    ];
+    const merged = applyDelta(local, delta, []).find((l) => l.id === "f1");
+    expect(merged.name).toBe("Folder (renamed)");
+    expect(merged.open).toBe(false);
+  });
+});

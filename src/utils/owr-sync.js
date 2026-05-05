@@ -624,23 +624,33 @@ export const forceSync = async () => {
  * Uses serverSyncedAt to determine which lists changed since last sync.
  * Falls back to sending all lists when serverSyncedAt is unknown (first sync, app restart).
  */
+// Strip per-device UI state from outgoing payloads so a real edit on device A
+// doesn't carry device A's folder open/closed state across to device B.
+const stripLocalOnly = (list) => {
+  if (!list) return list;
+  const { open, ...rest } = list;
+  return rest;
+};
+
 const splitDirtyLists = (timestampedLists, syncedAt = serverSyncedAt) => {
   const known = buildKnownManifest(timestampedLists);
 
   if (!syncedAt) {
     // No server timestamp — send everything (safe fallback)
-    return { dirty: timestampedLists, known };
+    return { dirty: timestampedLists.map(stripLocalOnly), known };
   }
 
   const syncedAtMs = new Date(syncedAt).getTime();
-  const dirty = timestampedLists.filter((list) => {
-    const parsed = list.updated_at
-      ? new Date(list.updated_at).getTime()
-      : NaN;
-    // Missing or invalid timestamp → always send (safe fallback)
-    const updatedAtMs = Number.isNaN(parsed) ? Infinity : parsed;
-    return updatedAtMs > syncedAtMs;
-  });
+  const dirty = timestampedLists
+    .filter((list) => {
+      const parsed = list.updated_at
+        ? new Date(list.updated_at).getTime()
+        : NaN;
+      // Missing or invalid timestamp → always send (safe fallback)
+      const updatedAtMs = Number.isNaN(parsed) ? Infinity : parsed;
+      return updatedAtMs > syncedAtMs;
+    })
+    .map(stripLocalOnly);
 
   return { dirty, known };
 };
@@ -678,7 +688,9 @@ const applyDelta = (localLists, deltaLists, deletedIds) => {
     if (deltaMap.has(list.id)) {
       const delta = deltaMap.get(list.id);
       if (delta._deleted) return; // Server tombstone — drop the list, don't store the marker
-      result.push(delta);
+      // Preserve the local `open` value — folder collapsed/expanded is a
+      // per-device UI preference and shouldn't follow the synced payload.
+      result.push(list.open !== undefined ? { ...delta, open: list.open } : delta);
     } else {
       if (list._deleted) return; // Stale local tombstone — server has stopped broadcasting it
       result.push(list);
@@ -749,7 +761,12 @@ const mergeLists = (local, server) => {
       if (localTime >= serverTime) {
         result.push(localList);
       } else if (!serverList._deleted) {
-        result.push(serverList);
+        // Preserve the local `open` value — per-device UI preference.
+        result.push(
+          localList.open !== undefined
+            ? { ...serverList, open: localList.open }
+            : serverList,
+        );
       }
       // else: server tombstone supersedes local list — drop entirely
     }
