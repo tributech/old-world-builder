@@ -1,4 +1,19 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+// Provide browser globals needed by owr-sync.js module init
+// (pulled in transitively via validation → unit → rules-index → owr-sync)
+vi.hoisted(() => {
+  globalThis.window = globalThis.window || globalThis;
+  globalThis.document = globalThis.document || { addEventListener: () => {} };
+  globalThis.fetch = globalThis.fetch || (() => {});
+});
+
+vi.mock("./storage", () => ({
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  setActiveStorageKey: vi.fn(),
+}));
+
 import { validateList } from "./validation";
 
 const intl = {
