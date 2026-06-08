@@ -11,6 +11,7 @@ import { useLanguage } from "../../utils/useLanguage";
 import { getFile } from "../../utils/file";
 
 import { getListAsText } from "./get-list-as-text";
+import { TournamentSubmit } from "./TournamentSubmit";
 import "./Export.css";
 
 export const Export = ({ isMobile }) => {
@@ -65,20 +66,17 @@ export const Export = ({ isMobile }) => {
     listText,
     asText: true,
   });
-  const share = async ({ asText }) => {
-    const shareData = {};
-
+  const share = async ({ asText } = {}) => {
     asText ? setShareError(false) : setOwbShareError(false);
 
-    if (asText) {
-      shareData.text = listText;
-    } else {
-      shareData.title = list.name;
-      shareData.files = [file];
-      shareData.text = list.description;
-    }
+    const shareData = asText
+      ? { text: listText }
+      : { title: list.name, text: list.description, files: [file] };
 
-    if (!navigator.canShare) {
+    // navigator.canShare(data) — note the argument. Without it the check
+    // only verifies the API exists, not whether it can share THIS data
+    // (file shares fail this check on some browsers).
+    if (!navigator.canShare?.(shareData)) {
       asText ? setShareError(true) : setOwbShareError(true);
       return;
     }
@@ -86,9 +84,14 @@ export const Export = ({ isMobile }) => {
     try {
       await navigator.share(shareData);
     } catch (error) {
+      // AbortError = user dismissed the system share sheet. Not a failure
+      // — the previous behaviour flashed "That unfortunately did not work"
+      // every time the user backed out of the share UI.
+      if (error?.name === "AbortError") return;
       asText ? setShareError(true) : setOwbShareError(true);
     }
   };
+
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -103,7 +106,7 @@ export const Export = ({ isMobile }) => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list?.name}`}</title>
+        <title>{`Battle Builder | ${list?.name}`}</title>
       </Helmet>
 
       {isMobile && (
@@ -358,6 +361,8 @@ export const Export = ({ isMobile }) => {
             <FormattedMessage id="export.error" />
           </p>
         )}
+
+        <TournamentSubmit list={list} />
       </MainComponent>
     </>
   );
