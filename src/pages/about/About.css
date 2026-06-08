@@ -1,3 +1,10 @@
 .about__donation {
   height: 30px;
 }
+
+.about__version {
+  margin-top: 2em;
+  text-align: center;
+  font-size: 0.85em;
+  opacity: 0.6;
+}

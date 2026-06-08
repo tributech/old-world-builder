@@ -1,0 +1,27 @@
+.tournament-submit__badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background-color: #c8a33e;
+  color: white;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+}
+
+.tournament-submit__select {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.tournament-submit__link {
+  display: block;
+  text-align: right;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: var(--color-primary);
+  text-decoration: underline;
+}

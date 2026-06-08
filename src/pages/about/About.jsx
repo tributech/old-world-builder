@@ -1,84 +1,78 @@
-import { useEffect } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Helmet } from "react-helmet-async";
 
 import { Header, Main } from "../../components/page";
-import { loadScript } from "../../utils/script";
+import { getItem, storageBackend } from "../../utils/storage";
+import { isValidRank } from "../../utils/order-keys";
+import { version } from "../../../package.json";
 
 import "./About.css";
+
+const measureListsStorage = () => {
+  const raw = getItem("owb.lists") || "[]";
+  let listCount = 0;
+  // Rank health: tells at a glance whether this builder is on the new
+  // order-key ranks or still carrying legacy/decayed ranks that need migrating.
+  let legacy = 0; // present but not a valid order key (old lexorank / corrupt)
+  let unranked = 0; // no rank yet (new arrival awaiting ensureRanks)
+  try {
+    const parsed = JSON.parse(raw) || [];
+    const live = parsed.filter((l) => l && !l._deleted);
+    listCount = parsed.length;
+    for (const l of live) {
+      if (l.rank == null) unranked++;
+      else if (!isValidRank(l.rank)) legacy++;
+    }
+  } catch {
+    listCount = 0;
+  }
+  let dirtyCount = 0;
+  try {
+    dirtyCount = (JSON.parse(getItem("dirtyIds") || "[]") || []).length;
+  } catch {
+    dirtyCount = 0;
+  }
+  // String length is byte-equivalent for ASCII; close enough for a debug readout.
+  const bytes = new Blob([raw]).size;
+  return {
+    kb: (bytes / 1024).toFixed(1),
+    listCount,
+    dirtyCount,
+    legacy,
+    unranked,
+    backend: storageBackend(), // "idb" once IndexedDB is in use, "ls" fallback
+  };
+};
 
 export const About = () => {
   const location = useLocation();
   const intl = useIntl();
+  const [storage, setStorage] = useState(() => measureListsStorage());
 
   useEffect(() => {
     window.scrollTo(0, 0);
-
-    loadScript("https://www.paypalobjects.com/donate/sdk/donate-sdk.js", () => {
-      window.PayPal.Donation.Button({
-        env: "production",
-        hosted_button_id: "VU2Z6Q32Q656A",
-        image: {
-          src: "https://www.paypalobjects.com/en_US/i/btn/btn_donate_LG.gif",
-          alt: "Donate with PayPal button",
-          title: "PayPal - The safer, easier way to pay online!",
-        },
-      }).render("#donate-button");
-    });
+    setStorage(measureListsStorage());
   }, [location.pathname]);
 
   return (
     <>
       <Helmet>
         <title>
-          {`Old World Builder | ${intl.formatMessage({ id: "footer.about" })}`}
+          {`Battle Builder | ${intl.formatMessage({ id: "footer.about" })}`}
         </title>
-        <link rel="canonical" href="https://old-world-builder.com/about" />
       </Helmet>
 
-      <Header headline="Old World Builder" hasMainNavigation hasHomeButton />
+      <Header headline="Battle Builder" hasMainNavigation hasHomeButton />
 
       <Main compact>
         <h2 className="page-headline">
           <FormattedMessage id="about.title" />
         </h2>
         <p>
-          <FormattedMessage
-            id="about.text"
-            values={{
-              owb: <i>Old World Builder</i>,
-            }}
-          />
+          <FormattedMessage id="about.text" />
         </p>
-
-        <h2>
-          <FormattedMessage id="about.support" />
-        </h2>
-        <p>
-          <FormattedMessage
-            id="about.text3"
-            values={{
-              owb: <i>Old World Builder</i>,
-              datasets: <Link to="/datasets">/datasets</Link>,
-              discord: (
-                <a
-                  href="https://discord.gg/87nUyjUxTU"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Discord
-                </a>
-              ),
-            }}
-          />
-        </p>
-        <p>
-          <FormattedMessage id="about.donation" />
-        </p>
-        <div id="donate-button-container" className="about__donation">
-          <div id="donate-button"></div>
-        </div>
 
         <h2>Credits</h2>
         <p>
@@ -96,9 +90,6 @@ export const About = () => {
               ),
             }}
           />
-        </p>
-        <p>
-          <FormattedMessage id="about.community" />
         </p>
         <p>
           <FormattedMessage
@@ -162,6 +153,21 @@ export const About = () => {
           Games Workshop Ltd 2000-2024, variably registered in the UK and other
           countries around the world. Used without permission. No challenge to
           their status intended. All Rights Reserved to their respective owners.
+        </p>
+        <p className="about__version">
+          v{version}
+          {" · "}
+          {storage.listCount} list{storage.listCount === 1 ? "" : "s"}
+          {" · "}
+          {storage.kb} KB
+          {storage.dirtyCount > 0 && ` · ${storage.dirtyCount} dirty`}
+          {" · "}
+          {storage.legacy > 0
+            ? `${storage.legacy} legacy rank${storage.legacy === 1 ? "" : "s"}`
+            : storage.unranked > 0
+            ? `${storage.unranked} unranked`
+            : "order-keys"}
+          {` · ${storage.backend}`}
         </p>
       </Main>
     </>

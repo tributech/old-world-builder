@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { FormattedMessage, useIntl } from "react-intl";
@@ -26,8 +26,29 @@ import { getStats, getUnitName } from "../../utils/unit";
 import { editUnit } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
 import { getGameSystems } from "../../utils/game-systems";
+import { getItem, removeItem, setItem } from "../../utils/storage";
 
 import "./GameView.css";
+
+const INITIAL_GAME_STATE = {
+  banners: 0,
+  scenarioPoints: 0,
+  generalDead: false,
+  BSBDead: false,
+  detachmentsDead: {},
+  victoryPoints: {},
+};
+
+const loadGameState = (listId) => {
+  if (!listId) return INITIAL_GAME_STATE;
+  try {
+    const raw = getItem(`owb.game.${listId}`);
+    if (!raw) return INITIAL_GAME_STATE;
+    return { ...INITIAL_GAME_STATE, ...JSON.parse(raw) };
+  } catch {
+    return INITIAL_GAME_STATE;
+  }
+};
 
 export const GameView = () => {
   const { listId, type } = useParams();
@@ -44,12 +65,51 @@ export const GameView = () => {
     showCustomNotes,
     showGeneratedSpells,
   } = settings;
-  const [banners, setBanners] = useState(0);
-  const [scenarioPoints, setScenarioPoints] = useState(0);
-  const [generalDead, setGeneralDead] = useState(false);
-  const [BSBDead, setBSBDead] = useState(false);
-  const [detachmentsDead, setDetachmentsDead] = useState({});
-  const [victoryPoints, setVictoryPoints] = useState({});
+  // gameState carries its source listId so navigation between two game
+  // views can't race the rehydrate effect into overwriting the new list's
+  // saved state with the old list's still-rendered state.
+  const [gameState, setGameState] = useState(() => ({
+    listId,
+    ...loadGameState(listId),
+  }));
+  const { banners, scenarioPoints, generalDead, BSBDead, detachmentsDead, victoryPoints } = gameState;
+  const setBanners = (v) => setGameState((s) => ({ ...s, banners: v }));
+  const setScenarioPoints = (v) => setGameState((s) => ({ ...s, scenarioPoints: v }));
+  const setGeneralDead = (v) => setGameState((s) => ({ ...s, generalDead: v }));
+  const setBSBDead = (v) => setGameState((s) => ({ ...s, BSBDead: v }));
+  const setDetachmentsDead = (v) =>
+    setGameState((s) => ({ ...s, detachmentsDead: typeof v === "function" ? v(s.detachmentsDead) : v }));
+  const setVictoryPoints = (v) =>
+    setGameState((s) => ({ ...s, victoryPoints: typeof v === "function" ? v(s.victoryPoints) : v }));
+
+  useEffect(() => {
+    if (gameState.listId !== listId) {
+      setGameState({ listId, ...loadGameState(listId) });
+    }
+  }, [listId, gameState.listId]);
+
+  useEffect(() => {
+    if (!listId || gameState.listId !== listId) return;
+    try {
+      // eslint-disable-next-line no-unused-vars
+      const { listId: _ignored, ...persisted } = gameState;
+      setItem(`owb.game.${listId}`, JSON.stringify(persisted));
+    } catch {
+      // localStorage quota / serialization errors are non-fatal — game still
+      // works in-memory; persistence resumes on next mutation.
+    }
+  }, [listId, gameState]);
+
+  const handleResetGame = () => {
+    const ok = window.confirm(
+      intl.formatMessage({ id: "misc.resetGameConfirm" }),
+    );
+    if (!ok) return;
+    if (listId) {
+      try { removeItem(`owb.game.${listId}`); } catch {}
+    }
+    setGameState({ listId, ...INITIAL_GAME_STATE });
+  };
   const list = useSelector((state) =>
     state.lists.find(({ id }) => listId === id),
   );
@@ -64,7 +124,7 @@ export const GameView = () => {
     );
   };
   const updateLocalSettings = (newSettings) => {
-    localStorage.setItem("owb.settings", JSON.stringify(newSettings));
+    setItem("owb.settings", JSON.stringify(newSettings));
   };
 
   if (!list) {
@@ -626,7 +686,7 @@ export const GameView = () => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list.name}`}</title>
+        <title>{`Battle Builder | ${list.name}`}</title>
       </Helmet>
 
       <RulesIndex />
@@ -817,6 +877,12 @@ export const GameView = () => {
             </div>
           </section>
         )}
+
+        <div className="game-view__reset">
+          <Button type="secondary" onClick={handleResetGame}>
+            <FormattedMessage id="misc.resetGame" />
+          </Button>
+        </div>
       </Main>
     </>
   );
