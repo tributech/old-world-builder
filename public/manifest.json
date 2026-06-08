@@ -1,6 +1,6 @@
 {
-  "name": "Old World Builder",
-  "short_name": "Old World Builder",
+  "name": "Battle Builder",
+  "short_name": "Battle Builder",
   "icons": [
     {
       "src": "/android-chrome-192x192.png",
@@ -20,10 +20,10 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
+  "theme_color": "#1C1C1C",
+  "background_color": "#1C1C1C",
   "display": "standalone",
   "scope": "/",
   "orientation": "portrait",
-  "start_url": "https://old-world-builder.com"
+  "start_url": "/builder"
 }
