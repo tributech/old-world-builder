@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { useParams, useLocation, Redirect } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { FormattedMessage, useIntl } from "react-intl";
 import { Helmet } from "react-helmet-async";
 
@@ -8,7 +8,9 @@ import { Button } from "../../components/button";
 import { Header, Main } from "../../components/page";
 import { NumberInput } from "../../components/number-input";
 import { getRandomId } from "../../utils/id";
-import { setLists } from "../../state/lists";
+import { useListCommit } from "../../utils/owr-list-commit";
+import { addListOp } from "../../utils/owr-list";
+import { rankAfter } from "../../utils/list-ordering";
 
 import "./DuplicateList.css";
 
@@ -17,12 +19,11 @@ export const DuplicateList = ({ isMobile }) => {
   const intl = useIntl();
   const MainComponent = isMobile ? Main : Fragment;
   const { listId } = useParams();
-  const dispatch = useDispatch();
+  const commit = useListCommit();
   const [name, setName] = useState("");
   const [points, setPoints] = useState(2000);
   const [description, setDescription] = useState("");
   const [redirect, setRedirect] = useState(null);
-  const lists = useSelector((state) => state.lists);
   const list = useSelector((state) =>
     state.lists.find(({ id }) => listId === id),
   );
@@ -37,23 +38,26 @@ export const DuplicateList = ({ isMobile }) => {
     setDescription(event.target.value);
   };
   const handleSubmit = (event) => {
+    event.preventDefault();
     const newId = getRandomId();
-    const newLists = [
-      {
+    // A duplicate stays alongside its source (same folder, ranked right after
+    // it) rather than jumping to the top.
+    commit((lists) => {
+      const source = lists.find((l) => l.id === listId);
+      const duplicate = {
         ...list,
         name,
         points,
         description,
         id: newId,
-      },
-      ...lists,
-    ];
-
-    event.preventDefault();
-
-    localStorage.setItem("owb.lists", JSON.stringify(newLists));
-    dispatch(setLists(newLists));
-
+        folder: source?.folder ?? null,
+        rank: rankAfter(
+          lists.filter((l) => !l._deleted),
+          source,
+        ),
+      };
+      return addListOp(duplicate)(lists);
+    });
     setRedirect(newId);
   };
 
@@ -92,7 +96,7 @@ export const DuplicateList = ({ isMobile }) => {
       {redirect && <Redirect to={`/editor/${redirect}`} />}
 
       <Helmet>
-        <title>{`Old World Builder | ${list?.name}`}</title>
+        <title>{`Battle Builder | ${list?.name}`}</title>
       </Helmet>
 
       {isMobile && (

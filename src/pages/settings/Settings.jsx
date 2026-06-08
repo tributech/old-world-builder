@@ -6,6 +6,7 @@ import { Helmet } from "react-helmet-async";
 
 import { Header, Main } from "../../components/page";
 import { updateSetting } from "../../state/settings";
+import { setItem } from "../../utils/storage";
 
 import "./Settings.css";
 
@@ -15,7 +16,7 @@ export const Settings = () => {
   const dispatch = useDispatch();
   const settings = useSelector((state) => state.settings);
   const updateLocalSettings = (newSettings) => {
-    localStorage.setItem("owb.settings", JSON.stringify(newSettings));
+    setItem("owb.settings", JSON.stringify(newSettings));
   };
   const handleSettingChange = (settingKey, value) => () => {
     const newSettings = { ...settings, [settingKey]: value };
@@ -47,14 +48,14 @@ export const Settings = () => {
     <>
       <Helmet>
         <title>
-          {`Old World Builder | ${intl.formatMessage({
+          {`Battle Builder | ${intl.formatMessage({
             id: "footer.settings",
           })}`}
         </title>
         <link rel="canonical" href="https://old-world-builder.com/settings" />
       </Helmet>
 
-      <Header headline="Old World Builder" hasMainNavigation hasHomeButton />
+      <Header headline="Battle Builder" hasMainNavigation hasHomeButton />
 
       <Main compact>
         <h2 className="page-headline">

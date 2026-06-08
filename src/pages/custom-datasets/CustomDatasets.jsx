@@ -167,17 +167,17 @@ export const CustomDatasets = () => {
     <>
       <Helmet>
         <title>
-          {`Old World Builder | ${intl.formatMessage({
+          {`Battle Builder | ${intl.formatMessage({
             id: "footer.custom-datasets",
           })}`}
         </title>
         <link
           rel="canonical"
-          href="https://old-world-builder.com/custom-datasets"
+          href="/custom-datasets"
         />
       </Helmet>
 
-      <Header headline="Old World Builder" hasMainNavigation hasHomeButton />
+      <Header headline="Battle Builder" hasMainNavigation hasHomeButton />
 
       <Main compact className="custom">
         <h2 className="page-headline">Custom game systems and datasets</h2>

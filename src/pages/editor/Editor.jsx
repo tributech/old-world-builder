@@ -18,9 +18,12 @@ import { throttle } from "../../utils/throttle";
 import { getUnitPoints, getPoints, getAllPoints } from "../../utils/points";
 import { useLanguage } from "../../utils/useLanguage";
 import { validateList } from "../../utils/validation";
-import { removeFromLocalList } from "../../utils/list";
+import { removeFromLocalList, updateLocalList } from "../../utils/owr-list";
+import { getGameSystems } from "../../utils/game-systems";
 import { deleteList, moveUnit } from "../../state/lists";
 import { setErrors } from "../../state/errors";
+import { togglePinnedOp } from "../../utils/owr-list";
+import { useListCommit } from "../../utils/owr-list-commit";
 
 import "./Editor.css";
 
@@ -29,6 +32,7 @@ export const Editor = ({ isMobile }) => {
   const { listId } = useParams();
   const intl = useIntl();
   const dispatch = useDispatch();
+  const commit = useListCommit();
   const { language } = useLanguage();
   const [redirect, setRedirect] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -182,6 +186,14 @@ export const Editor = ({ isMobile }) => {
       to: `/editor/${listId}/duplicate`,
     },
     {
+      name: list?.pinned_at ? intl.formatMessage({ id: "misc.unpin" }) : intl.formatMessage({ id: "misc.pin" }),
+      icon: "pin",
+      callback: () => {
+        if (!list) return;
+        commit(togglePinnedOp(listId));
+      },
+    },
+    {
       name: intl.formatMessage({
         id: "misc.delete",
       }),
@@ -214,7 +226,7 @@ export const Editor = ({ isMobile }) => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list?.name}`}</title>
+        <title>{`Battle Builder | ${list?.name}`}</title>
       </Helmet>
 
       <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)}>

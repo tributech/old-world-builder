@@ -3,10 +3,9 @@ import ReactDOM from "react-dom";
 import { Provider as ReduxProvider } from "react-redux";
 import { IntlProvider } from "react-intl";
 import { HelmetProvider } from "react-helmet-async";
-import * as Sentry from "@sentry/react";
 
+import { getItem, ready as storageReady } from "./utils/storage";
 import reportWebVitals from "./reportWebVitals";
-// import * as serviceWorkerRegistration from "./serviceWorkerRegistration";
 import { App } from "./App";
 import store from "./store";
 
@@ -17,16 +16,6 @@ import French from "./i18n/fr.json";
 import Italian from "./i18n/it.json";
 import Polish from "./i18n/pl.json";
 import Chinese from "./i18n/cn.json";
-
-// Sentry error tracking
-if (process.env.NODE_ENV !== "development") {
-  Sentry.init({
-    dsn: "https://3947feb62e2f5348c1759e8d4d9ed084@o314295.ingest.sentry.io/4506569636642816",
-    integrations: [],
-    environment: process.env.NODE_ENV,
-    release: `owb@${import.meta.env.VITE_VERSION}`,
-  });
-}
 
 const metaDescription = {
   de: "Armeebauer für Warhammer: The Old World.",
@@ -84,7 +73,7 @@ const darkColorScheme = window.matchMedia(
   "(prefers-color-scheme: dark)",
 ).matches;
 const localStorageColorScheme = JSON.parse(
-  localStorage.getItem("owb.settings"),
+  getItem("owb.settings"),
 )?.colorScheme;
 let colorScheme;
 
@@ -96,28 +85,28 @@ if (localStorageColorScheme === "auto" || !localStorageColorScheme) {
 
 document.documentElement.classList.add(colorScheme);
 
-ReactDOM.render(
-  <IntlProvider locale={locale} messages={messages}>
-    <ReduxProvider store={store}>
-      <React.StrictMode>
-        <HelmetProvider>
-          <App />
-        </HelmetProvider>
-      </React.StrictMode>
-    </ReduxProvider>
-  </IntlProvider>,
-  document.getElementById("root"),
-);
+// Wait for the storage layer to hydrate owb.lists from IndexedDB before
+// mounting, so the first read of the list collection sees the persisted data.
+// (Color scheme above reads owb.settings, which stays in localStorage, so it
+// can run synchronously without waiting.)
+storageReady.then(() => {
+  ReactDOM.render(
+    <IntlProvider locale={locale} messages={messages}>
+      <ReduxProvider store={store}>
+        <React.StrictMode>
+          <HelmetProvider>
+            <App />
+          </HelmetProvider>
+        </React.StrictMode>
+      </ReduxProvider>
+    </IntlProvider>,
+    document.getElementById("root"),
+  );
+});
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
 reportWebVitals();
 
-// serviceWorkerRegistration.register();
-navigator?.serviceWorker &&
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
-    }
-  });
+// PWA service worker disabled - OWR uses native mobile apps instead

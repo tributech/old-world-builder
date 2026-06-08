@@ -1,21 +1,20 @@
 import { useState, useEffect, createRef, Fragment } from "react";
 import { useLocation, Redirect } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
 import { FormattedMessage, useIntl } from "react-intl";
 
 import { Button } from "../../components/button";
 import { Header, Main } from "../../components/page";
 import { getRandomId } from "../../utils/id";
-import { setLists } from "../../state/lists";
+import { addAtTopOp } from "../../utils/owr-list";
+import { useListCommit } from "../../utils/owr-list-commit";
 
 import "./Import.css";
 
 export const Import = ({ isMobile }) => {
   const MainComponent = isMobile ? Main : Fragment;
   const location = useLocation();
-  const dispatch = useDispatch();
+  const commit = useListCommit();
   const intl = useIntl();
-  const lists = useSelector((state) => state.lists);
   const [list, setList] = useState(null);
   const [error, setError] = useState(false);
   const [typeError, setTypeError] = useState(false);
@@ -40,12 +39,11 @@ export const Import = ({ isMobile }) => {
     reader.readAsText(list, "UTF-8");
     reader.onload = (event) => {
       const newId = getRandomId();
-      const importedList = { ...JSON.parse(event.target.result), id: newId };
-      const newLists = [importedList, ...lists];
-
-      localStorage.setItem("owb.lists", JSON.stringify(newLists));
-      dispatch(setLists(newLists));
-      setRedirect(importedList.id);
+      const parsed = JSON.parse(event.target.result);
+      // addAtTopOp overrides the file's folder/rank so the import lands at the
+      // very top, top-level (just below pins).
+      commit(addAtTopOp({ ...parsed, id: newId }));
+      setRedirect(newId);
     };
     reader.onerror = () => {
       setError(true);

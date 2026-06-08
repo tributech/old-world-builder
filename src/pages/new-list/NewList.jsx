@@ -12,8 +12,10 @@ import { NumberInput } from "../../components/number-input";
 import { getGameSystems } from "../../utils/game-systems";
 import { getRandomId } from "../../utils/id";
 import { useLanguage } from "../../utils/useLanguage";
-import { setLists } from "../../state/lists";
 import { updateSetting } from "../../state/settings";
+import { addAtTopOp } from "../../utils/owr-list";
+import { useListCommit } from "../../utils/owr-list-commit";
+import { setItem } from "../../utils/storage";
 import { RulesIndex, RuleWithIcon } from "../../components/rules-index";
 
 import { nameMap } from "../magic";
@@ -24,6 +26,7 @@ export const NewList = ({ isMobile }) => {
   const MainComponent = isMobile ? Main : Fragment;
   const location = useLocation();
   const dispatch = useDispatch();
+  const commit = useListCommit();
   const intl = useIntl();
   const { language } = useLanguage();
   const gameSystems = getGameSystems();
@@ -100,12 +103,11 @@ export const NewList = ({ isMobile }) => {
       armyComposition,
       compositionRule,
     };
-    const newLists = [newList, ...lists];
-    const newSettings = { ...settings, lastChanged: new Date().toString() };
+    // Place at the very top, just below the pins.
+    commit(addAtTopOp(newList));
 
-    localStorage.setItem("owb.lists", JSON.stringify(newLists));
-    localStorage.setItem("owb.settings", JSON.stringify(newSettings));
-    dispatch(setLists(newLists));
+    const newSettings = { ...settings, lastChanged: new Date().toString() };
+    setItem("owb.settings", JSON.stringify(newSettings));
     dispatch(updateSetting({ lastChanged: newSettings.lastChanged }));
 
     setRedirect(newId);

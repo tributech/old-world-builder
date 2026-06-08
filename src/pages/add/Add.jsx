@@ -19,6 +19,7 @@ import { getRandomId } from "../../utils/id";
 import { useLanguage } from "../../utils/useLanguage";
 import { getArmyData } from "../../utils/army";
 import { fetcher } from "../../utils/fetcher";
+import { setItem } from "../../utils/storage";
 import { getUnitPoints } from "../../utils/points";
 import { getGameSystems, getCustomDatasetData } from "../../utils/game-systems";
 
@@ -102,7 +103,7 @@ export const Add = ({ isMobile }) => {
               favorites: settings.favorites.filter((fav) => fav.id !== unit.id),
             };
 
-            localStorage.setItem("owb.settings", JSON.stringify(newSettings));
+            setItem("owb.settings", JSON.stringify(newSettings));
             dispatch(updateSetting({ favorites: newSettings.favorites }));
           }}
         />
@@ -296,7 +297,7 @@ export const Add = ({ isMobile }) => {
   return (
     <>
       <Helmet>
-        <title>{`Old World Builder | ${list?.name}`}</title>
+        <title>{`Battle Builder | ${list?.name}`}</title>
       </Helmet>
 
       {isMobile && (

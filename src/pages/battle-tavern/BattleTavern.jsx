@@ -9,6 +9,8 @@ import { Header, Main } from "../../components/page";
 import { Button } from "../../components/button";
 import { Icon } from "../../components/icon";
 
+import { getItem } from "../../utils/storage";
+
 import "./BattleTavern.css";
 
 const DEFAULT_PORT = 47823;
@@ -21,7 +23,7 @@ const getPort = () => {
 };
 
 const getListCount = () => {
-  const raw = localStorage.getItem("owb.lists");
+  const raw = getItem("owb.lists");
   if (!raw) return 0;
   try {
     const lists = JSON.parse(raw);
@@ -133,7 +135,7 @@ export const BattleTavern = () => {
     <>
       <Helmet>
         <title>
-          {`Old World Builder | ${intl.formatMessage({
+          {`Battle Builder | ${intl.formatMessage({
             id: "battleTavern.title",
           })}`}
         </title>
@@ -144,7 +146,7 @@ export const BattleTavern = () => {
         />
       </Helmet>
 
-      <Header headline="Old World Builder" hasMainNavigation hasHomeButton />
+      <Header headline="Battle Builder" hasMainNavigation hasHomeButton />
 
       <Main compact>
         <h2 className="page-headline">
