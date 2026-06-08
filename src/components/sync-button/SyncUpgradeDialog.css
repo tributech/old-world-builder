@@ -1,0 +1,48 @@
+.sync-upgrade {
+  text-align: center;
+  padding: 0.5rem 0.5rem 0;
+  font-family: 'Montserrat', sans-serif;
+  width: 20rem;
+  max-width: 85vw;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.sync-upgrade__icon {
+  margin-bottom: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.sync-upgrade__logo {
+  width: 6rem;
+  height: 6rem;
+}
+
+.sync-upgrade__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  color: var(--color-text, #333);
+}
+
+.sync-upgrade__description {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #666);
+  margin: 0 0 0.5rem;
+  line-height: 1.5;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.sync-upgrade__actions {
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sync-upgrade__actions .button--text {
+  color: var(--color-text-secondary, #666);
+}
