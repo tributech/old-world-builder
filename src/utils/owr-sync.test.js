@@ -22,6 +22,7 @@ import { __test__ } from "./owr-sync";
 const {
   mergeLists,
   applyDelta,
+  reparentOrphans,
   splitDirtyLists,
   addTimestamps,
   buildKnownManifest,
@@ -153,6 +154,68 @@ describe("applyDelta", () => {
     ];
     const result = applyDelta(local, [], []);
     expect(result.map((l) => l.id)).toEqual(["1"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// reparentOrphans (orphan repair at the merge seam)
+// ---------------------------------------------------------------------------
+describe("orphan repair", () => {
+  beforeEach(resetStore);
+
+  test("reparentOrphans clears a pointer to a missing folder and marks dirty", () => {
+    const result = reparentOrphans([
+      { id: "child", folder: "gone", updated_at: "2026-01-01T00:00:00Z" },
+    ]);
+    expect(result.find((l) => l.id === "child").folder).toBe(null);
+    expect(getDirtyIds().has("child")).toBe(true);
+  });
+
+  test("reparentOrphans bumps updated_at so the fix wins LWW", () => {
+    const before = "2026-01-01T00:00:00Z";
+    const result = reparentOrphans([{ id: "child", folder: "gone", updated_at: before }]);
+    const repaired = result.find((l) => l.id === "child");
+    expect(new Date(repaired.updated_at).getTime()).toBeGreaterThan(new Date(before).getTime());
+  });
+
+  test("reparentOrphans treats a tombstoned folder as missing", () => {
+    const result = reparentOrphans([
+      { id: "f1", type: "folder", _deleted: true, updated_at: "2026-01-01T00:00:00Z" },
+      { id: "child", folder: "f1", updated_at: "2026-01-01T00:00:00Z" },
+    ]);
+    expect(result.find((l) => l.id === "child").folder).toBe(null);
+  });
+
+  test("reparentOrphans leaves a child of a live folder untouched and clean", () => {
+    const result = reparentOrphans([
+      { id: "f1", type: "folder", updated_at: "2026-01-01T00:00:00Z" },
+      { id: "child", folder: "f1", updated_at: "2026-01-01T00:00:00Z" },
+    ]);
+    expect(result.find((l) => l.id === "child").folder).toBe("f1");
+    expect(getDirtyIds().has("child")).toBe(false);
+  });
+
+  test("reparentOrphans is idempotent for already top-level lists", () => {
+    const result = reparentOrphans([{ id: "child", folder: null, updated_at: "x" }]);
+    expect(result.find((l) => l.id === "child").folder).toBe(null);
+    expect(getDirtyIds().has("child")).toBe(false);
+  });
+
+  test("mergeLists repairs an orphan surfaced by the merge", () => {
+    // Server has the child pointing at a folder that exists nowhere.
+    const server = [{ id: "child", folder: "gone", updated_at: "2026-02-01T00:00:00Z" }];
+    const merged = mergeLists([], server);
+    expect(merged.find((l) => l.id === "child").folder).toBe(null);
+    expect(getDirtyIds().has("child")).toBe(true);
+  });
+
+  test("applyDelta repairs an orphan surfaced by the delta", () => {
+    const local = [{ id: "child", folder: "f1", updated_at: "2026-01-01T00:00:00Z" }];
+    // Delta drops the folder (tombstone) but never clears the child's pointer.
+    const delta = [{ id: "f1", type: "folder", _deleted: true, updated_at: "2026-02-01T00:00:00Z" }];
+    const merged = applyDelta(local, delta, []);
+    expect(merged.find((l) => l.id === "child").folder).toBe(null);
+    expect(getDirtyIds().has("child")).toBe(true);
   });
 });
 

@@ -808,7 +808,36 @@ const applyDelta = (localLists, deltaLists, deletedIds) => {
     }
   });
 
-  return sortByRank(result);
+  return sortByRank(reparentOrphans(result));
+};
+
+/**
+ * Re-parent orphaned children whose folder no longer exists.
+ *
+ * Folders and their child lists are independent records merged by per-id
+ * last-write-wins; nothing keeps a child and its folder together. Deleting a
+ * folder only re-parents the children the deleting device happened to hold
+ * (deleteFolderOp), so a child living on another device keeps pointing at a
+ * folder that is now gone. sortByRank floats such orphans to the top level for
+ * display, but the dangling `folder` pointer is never cleared, so the
+ * inconsistency persists and re-surfaces on every device that holds the child.
+ *
+ * Repair it at the merge seam — the one place that runs on every device on
+ * every pull: clear the pointer, bump updated_at so the fix wins LWW
+ * everywhere, and markDirty so it actually reaches the server on the next push.
+ * Idempotent: a child with a null or live-folder pointer is left untouched, so
+ * once repaired it stops being detected and all devices converge.
+ */
+const reparentOrphans = (lists) => {
+  const liveFolderIds = new Set(
+    lists.filter((l) => l.type === "folder" && !l._deleted).map((l) => l.id),
+  );
+  return lists.map((l) => {
+    if (l.type === "folder" || l._deleted) return l;
+    if (l.folder == null || liveFolderIds.has(l.folder)) return l;
+    markDirty(l.id);
+    return { ...l, folder: null, updated_at: new Date().toISOString() };
+  });
 };
 
 /**
@@ -878,7 +907,7 @@ const mergeLists = (local, server) => {
   });
 
   // Sort by rank to ensure consistent ordering across devices
-  return sortByRank(result);
+  return sortByRank(reparentOrphans(result));
 };
 
 /**
@@ -974,6 +1003,7 @@ window.__OWR_SYNC__ = { resetAuth };
 export const __test__ = {
   mergeLists,
   applyDelta,
+  reparentOrphans,
   splitDirtyLists,
   addTimestamps,
   buildKnownManifest,
