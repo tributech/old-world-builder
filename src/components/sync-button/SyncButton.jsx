@@ -51,7 +51,9 @@ export const SyncButton = () => {
   }, [syncState.cloudSyncEntitled, syncState.isAuthenticated]);
 
   const handleClick = async () => {
-    if (!syncState.cloudSyncEntitled) {
+    // Logged out (e.g. guest in the app): can't sync, so open the upgrade
+    // dialog instead of attempting a sync that 401s.
+    if (syncState.isAuthenticated === false || !syncState.cloudSyncEntitled) {
       setShowUpgrade(true);
       return;
     }
@@ -64,9 +66,26 @@ export const SyncButton = () => {
     }
   };
 
-  // Don't show if not authenticated (unless auth error — show so user can retry)
-  if (syncState.isAuthenticated === false && !syncState.authError) {
-    return null;
+  // Logged out (web or native guest): surface the Pro / Cloud Sync dialog so the
+  // login + upgrade path stays discoverable, instead of hiding it or showing an
+  // auth error.
+  if (syncState.isAuthenticated === false) {
+    return (
+      <>
+        <button
+          className="sync-button sync-button--go-pro"
+          onClick={() => setShowUpgrade(true)}
+          title="Cloud sync with OWR Pro"
+        >
+          <Icon symbol="cloud-done" className="sync-button__icon" />
+          Go Pro
+        </button>
+        <SyncUpgradeDialog
+          open={showUpgrade}
+          onClose={() => setShowUpgrade(false)}
+        />
+      </>
+    );
   }
 
   // Not entitled — show "Go Pro" pill button

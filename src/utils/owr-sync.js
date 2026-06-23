@@ -353,10 +353,17 @@ export const resetAuthCache = () => {
 
 /**
  * Check if running in mobile app context
- * Returns true if JWT auth is configured or running from file:// protocol
+ * True in the native shell (owr:// scheme or file://) or when JWT auth is
+ * configured. Must NOT require a token: a logged-out guest still runs in the
+ * native shell and needs HashRouter, otherwise BrowserRouter + basename 404s
+ * on owr://builder/index.html.
  */
 export const isMobileAppContext = () => {
-  return isJwtMode() || window.location.protocol === "file:";
+  return (
+    isJwtMode() ||
+    window.location.protocol === "file:" ||
+    window.location.protocol === "owr:"
+  );
 };
 
 /**
