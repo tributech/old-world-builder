@@ -93,12 +93,13 @@ const withRank = (l, rank) => {
   return next;
 };
 
-// One-time migration: re-key EVERY non-deleted item with a fresh valid order
-// key. Keys are assigned as a single increasing sequence in display order
+// One-time legacy migration: re-key EVERY non-deleted item with a fresh valid
+// order key. Keys are assigned as a single increasing sequence in display order
 // (top-level run, each folder's children right after their folder), so they're
 // GLOBALLY unique and each context stays correctly ordered. Genuine arrivals
 // (no rank) float to the top of their context and shed any stale pin. Heals
-// legacy (free-form), decayed (`0000`-floor), and duplicate ranks in one pass.
+// legacy (free-form) and decayed (`0000`-floor) ranks in one pass. Duplicates
+// among otherwise-valid ranks are handled by dedupeRanks, not here.
 const rekeyAll = (lists) => {
   const live = lists.filter((l) => !l._deleted);
   // Within a context: arrivals first (top), then existing items by rank.
@@ -162,10 +163,74 @@ const floatArrivals = (lists) => {
   return { lists: result, needsUpdate };
 };
 
-// Ensure every list/folder has a valid, unique order key.
-//  - Any present-but-invalid rank (legacy free-form, decayed, corrupt) OR any
-//    duplicate rank ⇒ full re-key migration (heals + dedupes the whole set).
-//  - Otherwise, assign keys to any rankless arrivals (float to top of context).
+// A duplicate rank means two devices independently minted the same key (e.g.
+// both dragged an item to the same spot before syncing). Repair it with the
+// lightest possible touch so the two devices CONVERGE instead of fighting: the
+// lowest-id holder keeps the rank, every other holder is re-keyed just above
+// it. Only the re-keyed losers get a fresh updated_at (and so become dirty), so
+// a single collision no longer re-stamps and re-pushes the entire list — which
+// is what made reorders bounce back across devices (each load re-keyed
+// everything, bumped every updated_at, and steamrolled the other device's
+// order via last-write-wins). The lowest-id tie-break and id-ordered processing
+// are deterministic, so both devices resolve the collision to the SAME keys and
+// stop changing — no more ping-pong.
+const dedupeRanks = (lists) => {
+  const live = lists.filter((l) => !l._deleted);
+
+  // Deterministic owner per rank = lowest id. Everyone else must be re-keyed.
+  const ownerByRank = new Map();
+  for (const l of live) {
+    if (!isValidRank(l.rank)) continue;
+    const cur = ownerByRank.get(l.rank);
+    if (cur === undefined || l.id < cur) ownerByRank.set(l.rank, l.id);
+  }
+  const isKeeper = (l) =>
+    isValidRank(l.rank) && ownerByRank.get(l.rank) === l.id;
+  const used = new Set(ownerByRank.keys());
+
+  // Smallest keeper rank strictly above `rank` within `context` — the upper
+  // bound for slotting a loser right after the rank it collided on.
+  const nextKeptAbove = (context, rank) => {
+    let best = null;
+    for (const l of live) {
+      if (!isKeeper(l) || rankContext(l) !== context) continue;
+      if (l.rank > rank && (best === null || l.rank < best)) best = l.rank;
+    }
+    return best;
+  };
+
+  // Re-key losers in id order so multiple collisions on the same rank stack
+  // identically on every device.
+  const losers = live
+    .filter((l) => isValidRank(l.rank) && !isKeeper(l))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+  const ctxLo = new Map(); // per (context, collided-rank): last key handed out
+  const newRankById = new Map();
+  for (const l of losers) {
+    const c = rankContext(l);
+    const key = `${c} ${l.rank}`;
+    const lower = ctxLo.get(key) ?? l.rank;
+    const upper = nextKeptAbove(c, l.rank);
+    const nr = uniqueRankBetween(lower, upper, used);
+    used.add(nr);
+    ctxLo.set(key, nr);
+    newRankById.set(l.id, nr);
+  }
+
+  const result = lists.map((l) => {
+    const nr = l._deleted ? undefined : newRankById.get(l.id);
+    return nr === undefined ? l : withRank(l, nr);
+  });
+  return { lists: result, needsUpdate: newRankById.size > 0 };
+};
+
+// Ensure every list/folder has a valid, unique order key. Each step touches
+// ONLY the items it must, so a single defect can't re-key the whole set:
+//  - Invalid rank (legacy free-form, decayed, corrupt) ⇒ one-time, order-
+//    preserving full re-key migration.
+//  - Duplicate rank ⇒ targeted, deterministic dedupe (devices converge).
+//  - Rankless arrival ⇒ float to the top of its context.
 //  - Otherwise, no change.
 export const ensureRanks = (lists) => {
   const validRanks = lists
@@ -174,13 +239,24 @@ export const ensureRanks = (lists) => {
   const hasInvalid = lists.some(
     (l) => !l._deleted && l.rank != null && !isValidRank(l.rank),
   );
-  const hasDuplicate = new Set(validRanks).size !== validRanks.length;
-  if (hasInvalid || hasDuplicate) return rekeyAll(lists);
+  if (hasInvalid) return rekeyAll(lists);
 
-  const hasArrival = lists.some((l) => !l._deleted && l.rank == null);
-  if (hasArrival) return floatArrivals(lists);
+  let result = lists;
+  let needsUpdate = false;
 
-  return { lists, needsUpdate: false };
+  if (new Set(validRanks).size !== validRanks.length) {
+    const deduped = dedupeRanks(result);
+    result = deduped.lists;
+    needsUpdate = needsUpdate || deduped.needsUpdate;
+  }
+
+  if (result.some((l) => !l._deleted && l.rank == null)) {
+    const floated = floatArrivals(result);
+    result = floated.lists;
+    needsUpdate = needsUpdate || floated.needsUpdate;
+  }
+
+  return { lists: result, needsUpdate };
 };
 
 // Float pinned items.

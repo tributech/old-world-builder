@@ -262,8 +262,8 @@ describe("ensureRanks", () => {
     expect(new Set(ranks).size).toBe(ranks.length); // all globally unique
     expect(ranks.every((r) => typeof r === "string")).toBe(true);
 
-    // A duplicate triggers a full re-key (heals the set); the relative display
-    // order is preserved (f1, a, f2, [b, c], f3, [d, e]).
+    // These legacy invalid ranks trigger a full re-key (heals the set); the
+    // relative display order is preserved (f1, a, f2, [b, c], f3, [d, e]).
     expect(sortByRank(ranked).map((l) => l.id)).toEqual([
       "f1", "a", "f2", "b", "c", "f3", "d", "e",
     ]);
@@ -319,6 +319,73 @@ describe("ensureRanks", () => {
     const reordered = reorderList(sorted, belConIdx, 1);
     const reSorted = sortByRank(reordered);
     expect(reSorted[1].name).toBe("Bel Con");
+  });
+
+  // Multi-device convergence: a duplicate among otherwise-valid ranks must be
+  // healed by touching ONLY the colliding loser — never by re-keying (and
+  // re-stamping) the whole set, which is what made reorders ping-pong between
+  // devices via last-write-wins.
+  const AT = "2020-01-01T00:00:00.000Z";
+
+  test("dedupe re-keys only the loser; unique lists keep their rank AND updated_at", () => {
+    const lists = [
+      { id: "keep", name: "Keep", type: "list", folder: null, rank: "a1", updated_at: AT },
+      { id: "dup-b", name: "Dup B", type: "list", folder: null, rank: "a5", updated_at: AT },
+      { id: "dup-a", name: "Dup A", type: "list", folder: null, rank: "a5", updated_at: AT },
+      { id: "other", name: "Other", type: "list", folder: null, rank: "a9", updated_at: AT },
+    ];
+    const { lists: out, needsUpdate } = ensureRanks(lists);
+    expect(needsUpdate).toBe(true);
+    const by = Object.fromEntries(out.map((l) => [l.id, l]));
+
+    // Lowest id ("dup-a") keeps the rank and its old timestamp; the loser
+    // ("dup-b") is re-keyed and re-stamped.
+    expect(by["dup-a"].rank).toBe("a5");
+    expect(by["dup-a"].updated_at).toBe(AT);
+    expect(by["dup-b"].rank).not.toBe("a5");
+    expect(by["dup-b"].updated_at).not.toBe(AT);
+
+    // The churn regression: untouched lists are byte-for-byte unchanged — no
+    // mass re-key, no mass updated_at bump.
+    expect(by["keep"]).toEqual(lists[0]);
+    expect(by["other"]).toEqual(lists[3]);
+
+    const ranks = out.map((l) => l.rank);
+    expect(new Set(ranks).size).toBe(ranks.length);
+    expect(ensureRanks(out).needsUpdate).toBe(false); // idempotent
+  });
+
+  test("dedupe is set-deterministic: array order can't change rank-by-id (devices converge)", () => {
+    // Three lists share one rank; a fourth sits just above. Two devices holding
+    // the same set in DIFFERENT array orders must resolve to identical ranks
+    // per id — otherwise they'd never converge across sync.
+    const base = [
+      { id: "x", type: "list", folder: null, rank: "a5", updated_at: AT },
+      { id: "y", type: "list", folder: null, rank: "a5", updated_at: AT },
+      { id: "w", type: "list", folder: null, rank: "a5", updated_at: AT },
+      { id: "z", type: "list", folder: null, rank: "aF", updated_at: AT },
+    ];
+    const rankById = (arr) =>
+      Object.fromEntries(ensureRanks(arr).lists.map((l) => [l.id, l.rank]));
+    const deviceA = rankById(base);
+    const deviceB = rankById([base[3], base[1], base[0], base[2]]); // shuffled
+    expect(deviceB).toEqual(deviceA);
+    // Lowest id keeps the shared rank; the other two are re-keyed uniquely.
+    expect(deviceA["w"]).toBe("a5");
+    expect(new Set(Object.values(deviceA)).size).toBe(4);
+  });
+
+  test("dedupe slots the loser directly after the rank it collided on", () => {
+    const lists = [
+      { id: "aaa", type: "list", folder: null, rank: "a5", updated_at: AT }, // keeper
+      { id: "bbb", type: "list", folder: null, rank: "a5", updated_at: AT }, // loser
+      { id: "ccc", type: "list", folder: null, rank: "aF", updated_at: AT }, // next above
+    ];
+    const out = ensureRanks(lists).lists;
+    const loser = out.find((l) => l.id === "bbb");
+    expect(loser.rank > "a5").toBe(true);
+    expect(loser.rank < "aF").toBe(true);
+    expect(sortByRank(out).map((l) => l.id)).toEqual(["aaa", "bbb", "ccc"]);
   });
 
   test("top-level list (folder:null) at end of array gets rank before first folder", () => {
