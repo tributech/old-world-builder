@@ -31,6 +31,7 @@ const {
   markDirty,
   clearDirty,
   reconcileDirtyAfterPull,
+  cleanupDeletedLists,
 } = __test__;
 
 const resetStore = () => {
@@ -314,6 +315,59 @@ describe("dirty-set tracking", () => {
     memStore["owb.lists"] = JSON.stringify([]);
     clearDirty([{ id: "a", updated_at: "2026-02-01T00:00:00Z" }]);
     expect(JSON.parse(memStore["dirtyIds"])).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// cleanupDeletedLists
+// ---------------------------------------------------------------------------
+describe("cleanupDeletedLists", () => {
+  beforeEach(resetStore);
+
+  const ancient = "2020-01-01T00:00:00.000Z"; // well past the 7-day window
+  const idsIn = () =>
+    JSON.parse(memStore["owb.lists"]).map((l) => l.id).sort();
+
+  test("purges an ACKED tombstone older than the retention window", () => {
+    memStore["dirtyIds"] = JSON.stringify([]); // nothing pending = server confirmed
+    memStore["owb.lists"] = JSON.stringify([
+      { id: "live", updated_at: ancient },
+      { id: "gone", _deleted: true, updated_at: ancient },
+    ]);
+    cleanupDeletedLists();
+    expect(idsIn()).toEqual(["live"]);
+  });
+
+  test("keeps an UNACKED tombstone past the window — the resurrection-bug guard", () => {
+    // Delete made offline: id still dirty, tombstone aged out the window. It
+    // must survive so the delete still gets a chance to reach the server;
+    // otherwise the next pull resurrects the list.
+    memStore["dirtyIds"] = JSON.stringify(["gone"]);
+    memStore["owb.lists"] = JSON.stringify([
+      { id: "live", updated_at: ancient },
+      { id: "gone", _deleted: true, updated_at: ancient },
+    ]);
+    cleanupDeletedLists();
+    expect(idsIn()).toEqual(["gone", "live"]);
+  });
+
+  test("keeps a fresh (within-window) acked tombstone", () => {
+    memStore["dirtyIds"] = JSON.stringify([]);
+    memStore["owb.lists"] = JSON.stringify([
+      { id: "gone", _deleted: true, updated_at: new Date().toISOString() },
+    ]);
+    cleanupDeletedLists();
+    expect(idsIn()).toEqual(["gone"]);
+  });
+
+  test("never purges non-deleted lists, dirty or not", () => {
+    memStore["dirtyIds"] = JSON.stringify([]);
+    memStore["owb.lists"] = JSON.stringify([
+      { id: "a", updated_at: ancient },
+      { id: "b", updated_at: ancient },
+    ]);
+    cleanupDeletedLists();
+    expect(idsIn()).toEqual(["a", "b"]);
   });
 });
 

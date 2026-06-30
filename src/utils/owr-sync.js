@@ -923,17 +923,28 @@ const mergeLists = (local, server) => {
 export const filterDeletedLists = (lists) => lists.filter((l) => !l._deleted);
 
 /**
- * Clean up soft-deleted lists from localStorage
- * Only removes lists deleted more than 7 days ago
+ * Clean up soft-deleted lists from localStorage.
+ *
+ * A tombstone is only safe to purge once the server has ACKED the delete —
+ * acknowledgement is what clears its id from the dirty set. Age alone is not
+ * enough: a delete made offline (or while otherwise unsynced) keeps its id in
+ * `dirtyIds` until a round-trip confirms it, and `splitDirtyLists` can only
+ * send a tombstone that still exists in storage. So if we age-purged a
+ * still-dirty tombstone (e.g. the app sat unopened past the retention window
+ * with a pending offline delete), the delete would never reach the server and
+ * the next pull would resurrect the list. Keep unacked tombstones regardless of
+ * age; only the 7-day floor applies to ones the server has already confirmed.
  */
 export const cleanupDeletedLists = () => {
   const lists = JSON.parse(getItem("owb.lists")) || [];
   const now = Date.now();
+  const dirty = getDirtyIds();
 
   const cleaned = lists.filter((list) => {
     if (!list._deleted) return true; // Keep non-deleted
+    if (dirty.has(list.id)) return true; // Unacked delete — keep until server confirms
 
-    // Remove if deleted > 7 days ago
+    // Acked tombstone: remove once it's older than the retention window.
     const deletedAt = list.updated_at ? new Date(list.updated_at).getTime() : 0;
     return now - deletedAt < SOFT_DELETE_RETENTION_MS;
   });
@@ -1019,4 +1030,5 @@ export const __test__ = {
   markDirty,
   clearDirty,
   reconcileDirtyAfterPull,
+  cleanupDeletedLists,
 };
